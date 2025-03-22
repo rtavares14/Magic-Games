@@ -13,7 +13,9 @@ public:
     void print(const char* message);
     // A helper method to print two lines of messages with an optional delay.
     void printMessage(const char* line1, const char* line2, unsigned long duration = 2000);
-    
+
+    void printMessageNoTime(const char *line1, const char *line2);
+
 private:
     LiquidCrystal_I2C lcd;
 };

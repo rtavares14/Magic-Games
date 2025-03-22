@@ -1,7 +1,7 @@
 #ifndef GAME1_H
 #define GAME1_H
 
-// Runs Game 1.
-void runGame1();
+// Declare the non-blocking update function.
+bool updateGame1NonBlocking();
 
 #endif

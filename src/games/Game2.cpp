@@ -1,3 +1,4 @@
+// Game2.cpp – Non-blocking version
 #include "Game2.h"
 #include <Arduino.h>
 #include "../components/LCD.h"
@@ -7,15 +8,20 @@
 #include "../components/Button.h"
 #include "pins.h"
 
-// Use the global game timer from main.cpp (this now holds the remaining time from Game1)
-extern uint32_t gameDuration;
+// Declare global objects from main.cpp.
+extern LCD lcd;
+extern KeyLed keyLed;
+extern RGBLed rgb;
+extern Buzzer buzzer;
+extern Button button;
 
-// --- Game Constants ---
+extern const uint32_t TOTAL_TIME;
+extern uint32_t globalStartTime;
+
 const int MELODY_LENGTH = 8;
-const int KEY_DEBOUNCE_DELAY = 150;      // ms for key debouncing
-const unsigned long BUTTON_DEBOUNCE_DELAY = 50; // ms for confirmation button
+const int KEY_DEBOUNCE_DELAY = 150;
+const unsigned long BUTTON_DEBOUNCE_DELAY = 50;
 
-// --- Game Variables ---
 String targetMelody = "48215637";
 String tips[MELODY_LENGTH] = {
   "A quartet awaits",    
@@ -28,168 +34,149 @@ String tips[MELODY_LENGTH] = {
   "Lucky final touch"     
 };
 
-unsigned long gameStartTime;
-int attemptCount = 0;
-String userInput = "";
-unsigned long lastKeyPressTime = 0;
-uint8_t lastButtons = 0;
 char keyDigits[8] = {'1','2','3','4','5','6','7','8'};
 int noteFrequencies[8] = {261, 293, 329, 349, 392, 440, 493, 523};
 
-// --- Helper Functions ---
+// Define internal states for Game2.
+enum Game2State {
+  GAME2_INIT,
+  GAME2_PLAY,
+  GAME2_COMPLETE,
+  GAME2_TIME_UP
+};
 
-// Display the tip for the next expected note on the LCD.
-void showTip(LCD &lcd, int currentIndex) {
-  lcd.clear();
-  if (currentIndex < MELODY_LENGTH) {
-    char tipHeader[17];
-    sprintf(tipHeader, "Tip for note %d", currentIndex + 1);
-    lcd.setCursor(0, 0);
-    lcd.print(tipHeader);
-    lcd.setCursor(0, 1);
-    // Ensure tip fits in 16 characters.
-    String tip = tips[currentIndex];
-    if (tip.length() > 16) {
-      tip = tip.substring(0, 16);
-    }
-    lcd.print(tip.c_str());
-  }
-}
-
-// Play a success melody using the buzzer.
-void playSuccessMelody(Buzzer &buzzer) {
-  int melody[] = {261, 293, 329, 349, 392, 440, 493, 523};
-  buzzer.playTone(melody[0], 400);
-  delay(500);
-  for (int i = 1; i < 7; i++) {
-    buzzer.playTone(melody[i], 200);
-    delay(250);
-  }
-  buzzer.playTone(melody[7], 400);
-  delay(500);
-}
-
-// Play an error tone using the buzzer.
-void playErrorTone(Buzzer &buzzer) {
-  buzzer.playTone(300, 300);
-}
-
-// --- Main Game2 Function ---
-void runGame2() {
-  // Instantiate components.
-  LCD lcd(0x27, 16, 2);
-  KeyLed keyLed(STB_PIN, CLK_PIN, DIO_PIN);
-  Buzzer buzzer(PIN_BUZZER);
-  RGBLed rgbLed;     // Uses PIN_RED, PIN_GREEN, PIN_BLUE from pins.h
-  Button button(PIN_BUTTON, BUTTON_DEBOUNCE_DELAY);
+bool updateGame2NonBlocking() {
+  static Game2State gameState = GAME2_INIT;
+  static unsigned long stateStart = millis();
+  static int attemptCount = 0;
+  static String userInput = "";
+  static unsigned long lastKeyPressTime = 0;
+  static uint8_t lastButtons = 0;
+  static unsigned long game2LocalStart = 0;
   
-  // Initialize components.
-  lcd.begin();
-  keyLed.begin();
-  buzzer.begin();
-  rgbLed.begin();
-  button.begin();
-  
-  // Use the RGB LED's loading effect before starting game logic (2 seconds).
-  rgbLed.loadingEffect(2000);
-  
-  // Show initial info.
-  lcd.printMessage("Mystery Melody", "Find the tune!", 3000);
-  showTip(lcd, userInput.length());
-  
-  // Set initial LED color (blue).
-  rgbLed.setColor(0, 0, 255);
-  
-  // Record game start time.
-  gameStartTime = millis();
-  
-  // Main game loop.
-  while (true) {
-    unsigned long elapsed = millis() - gameStartTime;
-    
-    // --- Timer Check ---
-    if (elapsed >= gameDuration) {
-      // Time's up: update display and show game over.
-      keyLed.displayTime(gameDuration, gameDuration, attemptCount);
+  // Check global timer.
+  uint32_t elapsedGlobal = millis() - globalStartTime;
+  if (elapsedGlobal >= TOTAL_TIME) {
+    if (gameState != GAME2_TIME_UP) {
+      gameState = GAME2_TIME_UP;
+      stateStart = millis();
       lcd.clear();
       lcd.setCursor(0, 0);
       lcd.print("Time's up!");
       lcd.setCursor(0, 1);
       lcd.print("Game Over!");
       buzzer.playTone(400, 200);
-      delay(1000);
-      noTone(PIN_BUZZER);
-      while(true); // Halt here.
+      rgb.setColor(255, 0, 0);
     }
-    
-    // Update KeyLed display with timer and attempt count.
-    keyLed.displayTime(elapsed, gameDuration, attemptCount);
-    
-    // --- Process TM1638 Keys for Melody Input ---
-    uint8_t keys = keyLed.readButtons();
-    int pressedCount = 0;
-    int pressedIndex = -1;
-    
-    for (int i = 0; i < 8; i++) {
-      bool pressed = (keys & (1 << i)) != 0;
-      if (pressed) {
-        pressedCount++;
-        if (pressedIndex == -1) {
-          pressedIndex = i;
-        }
-        // Light up the key LED.
-        keyLed.setLED(i, true);
-      } else {
-        keyLed.setLED(i, false);
-      }
-    }
-    
-    // If exactly one key is pressed, record it (with debouncing).
-    if (pressedCount == 1 && (millis() - lastKeyPressTime > KEY_DEBOUNCE_DELAY) &&
-        ((lastButtons & (1 << pressedIndex)) == 0)) {
-      userInput += keyDigits[pressedIndex];
-      buzzer.playTone(noteFrequencies[pressedIndex], 200);
-      delay(200);
-      noTone(PIN_BUZZER);
-      lastKeyPressTime = millis();
-      showTip(lcd, userInput.length());
-    }
-    lastButtons = keys;
-    
-    // --- Process Confirmation Button ---
-    button.update();
-    if (button.isPressed() && userInput.length() > 0) {
-      // Compare only the first MELODY_LENGTH digits.
-      String compareInput = userInput.substring(0, min((int)userInput.length(), MELODY_LENGTH));
-      if (compareInput.equals(targetMelody)) {
-        // Correct melody entered.
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("Correct Tune!");
-        lcd.setCursor(0, 1);
-        lcd.print("Well done!");
-        rgbLed.setColor(0, 255, 0);  // Green LED.
-        playSuccessMelody(buzzer);
-        break;  // End game on success.
-      } else {
-        // Wrong melody.
-        attemptCount++;
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("Wrong Tune!");
-        lcd.setCursor(0, 1);
-        lcd.print("Try again!");
-        rgbLed.setColor(255, 0, 0);  // Red LED.
-        playErrorTone(buzzer);
-        delay(1000);
-        rgbLed.setColor(0, 0, 255);  // Back to blue.
-        userInput = "";
-        // Subtract 30 seconds from the timer.
-        gameStartTime -= 30000;
-        showTip(lcd, 0);
-      }
-    }
-    
-    delay(10);
+    return true;
   }
+  
+  switch (gameState) {
+    case GAME2_INIT: {
+      // Show welcome message for 2 seconds.
+      uint32_t t = millis() - stateStart;
+      lcd.clear();
+      if (t < 2000) {
+        lcd.setCursor(0, 0);
+        lcd.print("Welcome: LEVEL 2");
+        lcd.setCursor(0, 1);
+        lcd.print("Find the tune!");
+        rgb.setColor(0, 0, 255);
+      } else {
+        gameState = GAME2_PLAY;
+        stateStart = millis();
+        game2LocalStart = millis();
+        // Reset variables.
+        attemptCount = 0;
+        userInput = "";
+      }
+      break;
+    }
+    case GAME2_PLAY: {
+      // Process button/LED input.
+      uint8_t keys = keyLed.readButtons();
+      int pressedCount = 0;
+      int pressedIndex = -1;
+      for (int i = 0; i < 8; i++) {
+        bool pressed = (keys & (1 << i)) != 0;
+        if (pressed) {
+          pressedCount++;
+          if (pressedIndex == -1)
+            pressedIndex = i;
+          keyLed.setLED(i, true);
+        } else {
+          keyLed.setLED(i, false);
+        }
+      }
+      
+      if (pressedCount == 1 &&
+          (millis() - lastKeyPressTime > KEY_DEBOUNCE_DELAY) &&
+          ((lastButtons & (1 << pressedIndex)) == 0)) {
+        userInput += keyDigits[pressedIndex];
+        buzzer.playTone(noteFrequencies[pressedIndex], 200);
+        lastKeyPressTime = millis();
+        lcd.clear();
+        if (userInput.length() < MELODY_LENGTH) {
+          char tipHeader[17];
+          sprintf(tipHeader, "Tip for note %d", (int)userInput.length() + 1);
+          lcd.setCursor(0, 0);
+          lcd.print(tipHeader);
+          lcd.setCursor(0, 1);
+          String tip = tips[userInput.length()];
+          if (tip.length() > 16)
+            tip = tip.substring(0, 16);
+          lcd.print(tip.c_str());
+        }
+      }
+      lastButtons = keys;
+      
+      button.update();
+      if (button.isPressed() && userInput.length() > 0) {
+        String compareInput = userInput.substring(0, min((int)userInput.length(), MELODY_LENGTH));
+        if (compareInput.equals(targetMelody)) {
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("Correct Tune!");
+          lcd.setCursor(0, 1);
+          lcd.print("Well done!");
+          rgb.setColor(0, 255, 0);
+          buzzer.playSuccessMelody();
+          gameState = GAME2_COMPLETE;
+          stateStart = millis();
+        } else {
+          attemptCount++;
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("Wrong Tune!");
+          lcd.setCursor(0, 1);
+          lcd.print("Try again!");
+          rgb.setColor(255, 0, 0);
+          buzzer.playErrorTone();
+          // Instead of blocking delay, reset inputs immediately.
+          userInput = "";
+          lcd.clear();
+          char tipHeader[17];
+          sprintf(tipHeader, "Tip for note %d", 1);
+          lcd.setCursor(0, 0);
+          lcd.print(tipHeader);
+          lcd.setCursor(0, 1);
+          String tip = tips[0];
+          if (tip.length() > 16)
+            tip = tip.substring(0, 16);
+          lcd.print(tip.c_str());
+        }
+      }
+      break;
+    }
+    case GAME2_COMPLETE: {
+      // Hold success message for 2 seconds.
+      if (millis() - stateStart > 2000)
+        return true;
+      break;
+    }
+    case GAME2_TIME_UP:
+      return true;
+  }
+  
+  return false; // Game2 is still running.
 }

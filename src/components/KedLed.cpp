@@ -22,8 +22,9 @@ void KeyLed::displayTime(uint32_t elapsed, uint32_t totalDuration, int attemptCo
     int minutes = secondsRemaining / 60;
     int seconds = secondsRemaining % 60;
     
-    char clockStr[5];
-    sprintf(clockStr, "%02d%02d", minutes, seconds);
+    char clockStr[6];  // Increase size to 6 to hold "MM.SS" + null terminator.
+    sprintf(clockStr, "%02d.%02d", minutes, seconds);  // Insert a dot between minutes and seconds.
+    
     char attemptChar = (attemptCount < 10) ? ('0' + attemptCount) : '9';
     char disp[9];
     sprintf(disp, "%s   %c", clockStr, attemptChar);
