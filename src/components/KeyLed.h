@@ -10,9 +10,9 @@ public:
     void begin();
     uint8_t readButtons();
     void setLED(uint8_t index, bool state);
-    // Display a formatted timer string: time remaining and attempt count.
+    // Display formatted time (MM.SS) on the left and a three-digit button counter on the right.
     void displayTime(uint32_t elapsed, uint32_t totalDuration, int attemptCount);
-    
+    void printTimeUsed(unsigned long startTime);
 private:
     TM1638plus tm;
 };

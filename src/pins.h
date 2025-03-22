@@ -1,19 +1,19 @@
 #ifndef PINS_H
 #define PINS_H
 
-//potentiometer
+// Potentiometer
 #define PIN_POT A0
 
-//buzzer and btn pull up
+// Buzzer and button (pull up)
 #define PIN_BUZZER 2
 #define PIN_BUTTON 3
 
-//for LED light
+// LED pins
 #define PIN_RED 4
 #define PIN_GREEN 5
 #define PIN_BLUE 6
 
-//for key and led 
+// Key and LED module
 #define DIO_PIN 8  
 #define CLK_PIN 9  
 #define STB_PIN 10

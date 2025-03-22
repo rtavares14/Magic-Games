@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include "pins.h"
-#include "games/Game1.h"   // These now provide non-blocking update functions.
+#include "games/Game1.h"  
 #include "games/Game2.h"
 #include "components/RGBLed.h"
 #include "components/LCD.h"
@@ -8,10 +8,8 @@
 #include "components/Buzzer.h"
 #include "components/Button.h"
 
-// Total time: 10 minutes (600,000 ms)
+// Total time: 10 minutes 
 extern const uint32_t TOTAL_TIME = 600000UL;
-
-// Global timer (set once)
 uint32_t globalStartTime;
 
 // Global shared objects.
@@ -21,9 +19,7 @@ RGBLed rgb;
 Buzzer buzzer(PIN_BUZZER);
 Button button(PIN_BUTTON, 50);
 
-//---------------------------------------------------------------------
 // Application States
-//---------------------------------------------------------------------
 enum AppState {
   STATE_INTRO,
   STATE_GAME1,
@@ -38,21 +34,16 @@ uint32_t stateStartTime = 0;
 // Shared game variable (e.g. for attempt count)
 int currentGameAttempt = 0;
 
-//---------------------------------------------------------------------
-// Helper: Update the timer display (runs every loop)
-//---------------------------------------------------------------------
+// Update the timer display 
 void updateTimerDisplay() {
   uint32_t elapsed = millis() - globalStartTime;
   keyLed.displayTime(elapsed, TOTAL_TIME, currentGameAttempt);
 }
 
-//---------------------------------------------------------------------
-// Non-blocking Intro State using millis() (no delay)
-//---------------------------------------------------------------------
+// Intro State using millis() 
 void updateIntro() {
   uint32_t now = millis();
   uint32_t elapsedState = now - stateStartTime;
-  // We'll use a static variable to update the display only when needed.
   static int lastMessageIndex = -1;
   int messageIndex = -1;
   
@@ -103,11 +94,8 @@ void updateIntro() {
   }
 }
 
-//---------------------------------------------------------------------
 // Non-blocking Game1 State
-//---------------------------------------------------------------------
 void updateGame1() {
-  // updateGame1NonBlocking() must be refactored to use non-blocking millis()-based logic.
   bool finished = updateGame1NonBlocking();
   if (finished) {
     currentState = STATE_LOADING;
@@ -115,9 +103,7 @@ void updateGame1() {
   }
 }
 
-//---------------------------------------------------------------------
-// Non-blocking Loading State (between games)
-//---------------------------------------------------------------------
+// Loading State (between games)
 void updateLoading() {
   uint32_t now = millis();
   uint32_t elapsedState = now - stateStartTime;
@@ -126,19 +112,15 @@ void updateLoading() {
   lcd.setCursor(0, 0);
   lcd.print("Game 2 Loading");
 
-  // Cycle through colors non-blocking.
   rgb.loadingAnimation(elapsedState);
   
-  // After 5 seconds, transition to Game 2.
   if (elapsedState >= 5000) {
     currentState = STATE_GAME2;
     stateStartTime = now;
   }
 }
 
-//---------------------------------------------------------------------
-// Non-blocking Game2 State
-//---------------------------------------------------------------------
+// Game2 State
 void updateGame2() {
   bool finished = updateGame2NonBlocking();
   if (finished) {
@@ -147,18 +129,14 @@ void updateGame2() {
   }
 }
 
-//---------------------------------------------------------------------
 // Game Over State
-//---------------------------------------------------------------------
 void updateGameOver() {
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Game Over!");
 }
 
-//---------------------------------------------------------------------
 // Setup & Main Loop
-//---------------------------------------------------------------------
 void setup() {
   Serial.begin(9600);
   lcd.begin();
@@ -173,13 +151,9 @@ void setup() {
 }
 
 void loop() {
-  // Always update the timer display.
   updateTimerDisplay();
-
-  // Update global button state.
   button.update();
   
-  // Dispatch state updates.
   switch (currentState) {
     case STATE_INTRO:
       updateIntro();
@@ -198,5 +172,5 @@ void loop() {
       break;
   }
 
-  delay(10);  // Short delay to prevent the loop from running too fast.
+  delay(10);
 }

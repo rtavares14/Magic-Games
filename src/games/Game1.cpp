@@ -1,4 +1,3 @@
-// Game1.cpp – Non-blocking version
 #include "Game1.h"
 #include <Arduino.h>
 #include "../components/LCD.h"
@@ -71,37 +70,24 @@ bool updateGame1NonBlocking() {
     case GAME1_INIT: {
       // Show a sequence of messages non-blocking.
       uint32_t t = millis() - stateStart;
-      lcd.clear();
+      static int lastMsgIndex = -1;
+      int msgIndex = -1;
       if (t < 2000) {
-        lcd.setCursor(0, 0);
-        lcd.print("Welcome: LEVEL 1");
-        lcd.setCursor(0, 1);
-        lcd.print("Get Ready!");
-      }
-      else if (t < 5000) {
-        lcd.setCursor(0, 0);
-        lcd.print("Escape in 3 min");
-        lcd.setCursor(0, 1);
-        lcd.print("or rocks hit you");
-      }
-      else if (t < 8000) {
-        lcd.setCursor(0, 0);
-        lcd.print("Listen carefully");
-        lcd.setCursor(0, 1);
-        lcd.print("find the beep");
-      }
-      else if (t < 11000) {
-        lcd.setCursor(0, 0);
-        lcd.print("When found,");
-        lcd.setCursor(0, 1);
-        lcd.print("press the button");
-      }
-      else {
-        // Initialize game parameters
+        msgIndex = 0;
+      } else if (t < 5000) {
+        msgIndex = 1;
+      } else if (t < 8000) {
+        msgIndex = 2;
+      } else if (t < 11000) {
+        msgIndex = 3;
+      } else {
         randomSeed(analogRead(A1));
         for (int i = 0; i < 3; i++) {
           combo[i] = random(0, 361) * 10;
         }
+        Serial.println("------------------------------------");
+        Serial.println("---------------Game-1---------------");
+        Serial.println("Vault combo generated!");
         Serial.print("Vault combo: ");
         Serial.print(combo[0]); Serial.print(" ");
         Serial.print(combo[1]); Serial.print(" ");
@@ -113,11 +99,44 @@ bool updateGame1NonBlocking() {
         comboInitialized = true;
         gameState = GAME1_PLAY;
         stateStart = millis();
+        lastMsgIndex = -1;
+        break;
+      }
+      
+      if (msgIndex != lastMsgIndex) {
+         lcd.clear();
+         switch(msgIndex) {
+           case 0:
+             lcd.setCursor(0, 0);
+             lcd.print("Welcome: LEVEL 1");
+             lcd.setCursor(0, 1);
+             lcd.print("Get Ready!");
+             break;
+           case 1:
+             lcd.setCursor(0, 0);
+             lcd.print("Escape in 3 min");
+             lcd.setCursor(0, 1);
+             lcd.print("or rocks hit you");
+             break;
+           case 2:
+             lcd.setCursor(0, 0);
+             lcd.print("Listen carefully");
+             lcd.setCursor(0, 1);
+             lcd.print("find the beep");
+             break;
+           case 3:
+             lcd.setCursor(0, 0);
+             lcd.print("When found,");
+             lcd.setCursor(0, 1);
+             lcd.print("press the button");
+             break;
+         }
+         lastMsgIndex = msgIndex;
       }
       break;
     }
     case GAME1_PLAY: {
-      // Update the timer display (if desired; main loop already does this).
+      // Update the timer display 
       uint32_t elapsed = millis() - globalStartTime;
       keyLed.displayTime(elapsed, TOTAL_TIME, currentStep);
       
@@ -153,7 +172,7 @@ bool updateGame1NonBlocking() {
       int target = combo[currentStep];
       int distance = abs(currentValue - target);
       
-      // Tone Generation (non-blocking).
+      // Tone Generation 
       if (distance < levelThreshold) {
         buzzer.playTone(levelTone, 50);
       } else if (distance < levelThreshold + 5) {
@@ -183,52 +202,54 @@ bool updateGame1NonBlocking() {
       button.update();
       bool buttonPressed = button.isPressed();
       if (waitState == WAIT_FOR_CORRECT_VALUE) {
-        if (distance < levelThreshold && buttonPressed) {
-          confirmStartTime = millis();
-          waitState = CONFIRMING;
-        }
-      } else if (waitState == CONFIRMING) {
-        if (distance >= CONFIRMATION_THRESHOLD)
-          waitState = WAIT_FOR_CORRECT_VALUE;
-        else if (millis() - confirmStartTime >= CONFIRMATION_DELAY) {
-          currentStep++;
-          Serial.print("Step ");
-          Serial.print(currentStep);
-          Serial.println(" confirmed!");
-          if (currentStep < 3) {
-            char stepMsg[17];
-            sprintf(stepMsg, "STEP %d OF 3 DONE", currentStep);
-            lcd.clear();
-            lcd.setCursor(0, 0);
-            lcd.print(stepMsg);
-            lcd.setCursor(0, 1);
-            lcd.print("KEEP GOING");
-          } else {
-            lcd.clear();
-            lcd.setCursor(0, 0);
-            lcd.print("Vault opened!");
-            lcd.setCursor(0, 1);
-            lcd.print("Congrats!");
-            buzzer.playSuccessMelody();
-            safeOpened = true;
-            gameState = GAME1_COMPLETE;
-            stateStart = millis();
+          if (distance < levelThreshold && buttonPressed) {
+              confirmStartTime = millis();
+              waitState = CONFIRMING;
           }
-          waitState = WAIT_FOR_CORRECT_VALUE;
-          lastPrintedValue = -100;
-        }
+      } else if (waitState == CONFIRMING) {
+          if (distance >= CONFIRMATION_THRESHOLD)
+              waitState = WAIT_FOR_CORRECT_VALUE;
+          else if (millis() - confirmStartTime >= CONFIRMATION_DELAY) {
+              currentStep++;
+              Serial.print("Step ");
+              Serial.print(currentStep);
+              Serial.println(" confirmed!");
+              if (currentStep < 3) {
+                  lcd.clear();
+                  lcd.setCursor(0, 0);
+                  char stepMsg[17];
+                  sprintf(stepMsg, "STEP %d OF 3 DONE", currentStep);
+                  lcd.print(stepMsg);
+                  lcd.setCursor(0, 1);
+                  lcd.print("KEEP GOING");
+              } else {
+                  lcd.clear();
+                  lcd.setCursor(0, 0);
+                  lcd.print("Vault opened!");
+                  lcd.setCursor(0, 1);
+                  lcd.print("Congrats!");
+                  Serial.println("Vault opened!");
+                  keyLed.printTimeUsed(globalStartTime);
+                  rgb.setColor(0, 255, 0);
+                  buzzer.playSuccessMelody();
+                  safeOpened = true;
+                  gameState = GAME1_COMPLETE;
+                  stateStart = millis();
+              }
+              waitState = WAIT_FOR_CORRECT_VALUE;
+              lastPrintedValue = -100;
+          }
       }
       break;
     }
     case GAME1_COMPLETE: {
-      // Hold success message for 2 seconds then finish.
       if (millis() - stateStart > 2000)
-        return true;
+          return true;
       break;
     }
     case GAME1_TIME_UP:
       return true;
   }
   
-  return false; // Game1 is still running.
+  return false;
 }

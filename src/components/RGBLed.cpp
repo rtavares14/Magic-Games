@@ -44,3 +44,25 @@ void RGBLed::blink(uint8_t r, uint8_t g, uint8_t b, int delayTime) {
     setColor(0, 0, 0);
     delay(delayTime);
 }
+
+void RGBLed::loadingAnimation(uint32_t elapsed) {
+    // Cycle time in milliseconds (here, 800ms for a full cycle)
+    uint32_t cycleTime = elapsed % 800;
+
+    if (cycleTime < 100)
+        setColor(255, 0, 0);
+    else if (cycleTime < 200)
+        setColor(255, 127, 0);
+    else if (cycleTime < 300)
+        setColor(255, 255, 0);
+    else if (cycleTime < 400)
+        setColor(0, 255, 0);
+    else if (cycleTime < 500)
+        setColor(0, 0, 255);
+    else if (cycleTime < 600)
+        setColor(75, 0, 130);
+    else if (cycleTime < 700)
+        setColor(148, 0, 211);
+    else
+        setColor(255, 255, 255);
+}

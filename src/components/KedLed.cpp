@@ -30,3 +30,15 @@ void KeyLed::displayTime(uint32_t elapsed, uint32_t totalDuration, int attemptCo
     sprintf(disp, "%s   %c", clockStr, attemptChar);
     tm.displayText(disp);
 }
+
+void KeyLed::printTimeUsed(unsigned long startTime) {
+    unsigned long usedTime = millis() - startTime;
+    unsigned int totalSeconds = usedTime / 1000;
+    unsigned int minutes = totalSeconds / 60;
+    unsigned int seconds = totalSeconds % 60;
+    Serial.print("Time used: ");
+    Serial.print(minutes);
+    Serial.print("m and ");
+    Serial.print(seconds);
+    Serial.println("s");
+}
