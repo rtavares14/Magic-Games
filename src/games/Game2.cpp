@@ -18,6 +18,7 @@ extern Button button;
 // Use the global timer defined in main.cpp.
 extern uint32_t globalStartTime;
 extern const uint32_t TOTAL_TIME;
+extern int currentGamePresses;  // From main.cpp
 
 const int MELODY_LENGTH = 8;
 const int KEY_DEBOUNCE_DELAY = 150;
@@ -52,8 +53,9 @@ bool updateGame2NonBlocking() {
   static String userInput = "";
   static unsigned long lastKeyPressTime = 0;
   static uint8_t lastButtons = 0;
-  static unsigned long game2LocalStart = 0;
-  
+  // New variable to mark the start time of Game 2.
+  static uint32_t game2StartTime = 0;
+
   // Check global timer expiration.
   uint32_t elapsedGlobal = millis() - globalStartTime;
   if (elapsedGlobal >= TOTAL_TIME) {
@@ -78,28 +80,45 @@ bool updateGame2NonBlocking() {
       int msgIndex = -1;
       if (t < 2000) {
          msgIndex = 0;
+         if (msgIndex != lastMsgIndex) {
+           lcd.clear();
+           lcd.setCursor(0, 0);
+           lcd.print("Welcome: LEVEL 2");
+           lcd.setCursor(0, 1);
+           lcd.print("Find the tune!");
+           rgb.setColor(0, 0, 255);
+           lastMsgIndex = msgIndex;
+         }
       } else {
+         // After 2 seconds, clear the welcome message and display the first tip.
+         lcd.clear();
+         char tipHeader[17];
+         sprintf(tipHeader, "Tip for note %d", 1);
+         lcd.setCursor(0, 0);
+         lcd.print(tipHeader);
+         lcd.setCursor(0, 1);
+         String tip = tips[0];
+         if (tip.length() > 16)
+             tip = tip.substring(0, 16);
+         lcd.print(tip.c_str());
+         // Print debug header for Game2.
+         Serial.println("------------------------------------");
+         Serial.println("---------------Game-2---------------");
+         Serial.println("Melody generated!");
+         Serial.print("Melody: ");
+         Serial.println(targetMelody);
+         // Set the start time for Game 2.
+         game2StartTime = millis();
          gameState = GAME2_PLAY;
          stateStart = millis();
          lastMsgIndex = -1;
          break;
       }
-      if (msgIndex != lastMsgIndex) {
-         lcd.clear();
-         switch(msgIndex) {
-            case 0:
-              lcd.setCursor(0, 0);
-              lcd.print("Welcome: LEVEL 2");
-              lcd.setCursor(0, 1);
-              lcd.print("Find the tune!");
-              rgb.setColor(0, 0, 255);
-              break;
-         }
-         lastMsgIndex = msgIndex;
-      }
       break;
     }
     case GAME2_PLAY: {
+      static bool finalMessageDisplayed = false;
+      static String lastTip = "";
       uint8_t keys = keyLed.readButtons();
       int pressedCount = 0;
       int pressedIndex = -1;
@@ -121,28 +140,50 @@ bool updateGame2NonBlocking() {
           userInput += keyDigits[pressedIndex];
           buzzer.playTone(noteFrequencies[pressedIndex], 200);
           lastKeyPressTime = millis();
-          // Use a static variable to update tip message only when it changes.
-          static String lastTip = "";
           char tipHeader[17];
           sprintf(tipHeader, "Tip for note %d", (int)userInput.length() + 1);
-          String tip = tips[userInput.length()];
-          if (tip.length() > 16)
-              tip = tip.substring(0, 16);
-          if (tip != lastTip) {
+          if (userInput.length() < MELODY_LENGTH) {
+              String tip = tips[userInput.length()];
+              if (tip.length() > 16)
+                  tip = tip.substring(0, 16);
+              if (tip != lastTip) {
+                  lcd.clear();
+                  lcd.setCursor(0, 0);
+                  lcd.print(tipHeader);
+                  lcd.setCursor(0, 1);
+                  lcd.print(tip.c_str());
+                  lastTip = tip;
+              }
+          } else if (userInput.length() == MELODY_LENGTH && !finalMessageDisplayed) {
               lcd.clear();
               lcd.setCursor(0, 0);
-              lcd.print(tipHeader);
+              lcd.print("Maybe give a ,");
               lcd.setCursor(0, 1);
-              lcd.print(tip.c_str());
-              lastTip = tip;
+              lcd.print("try to the melody");
+              finalMessageDisplayed = true;
           }
       }
       lastButtons = keys;
       
-      button.update();
       if (button.isPressed() && userInput.length() > 0) {
-          String compareInput = userInput.substring(0, min((int)userInput.length(), MELODY_LENGTH));
-          if (compareInput.equals(targetMelody)) {
+          // Compute how many consecutive digits match the target melody.
+          int correctCount = 0;
+          for (int i = 0; i < userInput.length() && i < targetMelody.length(); i++) {
+              if (userInput.charAt(i) == targetMelody.charAt(i))
+                  correctCount++;
+              else
+                  break;
+          }
+          
+          // If the complete melody is correct.
+          if (userInput.equals(targetMelody)) {
+              Serial.print("Try number ");
+              Serial.print(attemptCount + 1);
+              Serial.println(": melody correct");
+              // Print time used in Game 2 (measured from game2StartTime)
+              keyLed.printTimeUsed(game2StartTime);
+              Serial.print("Button presses: ");
+              Serial.println(currentGamePresses);
               lcd.clear();
               lcd.setCursor(0, 0);
               lcd.print("Correct Tune!");
@@ -154,6 +195,13 @@ bool updateGame2NonBlocking() {
               stateStart = millis();
           } else {
               attemptCount++;
+              Serial.print("Try number ");
+              Serial.print(attemptCount);
+              Serial.print(": ");
+              Serial.print(correctCount);
+              Serial.println(" correct");
+              // Deduct 30 seconds from the global timer.
+              globalStartTime -= 30000;
               lcd.clear();
               lcd.setCursor(0, 0);
               lcd.print("Wrong Tune!");
@@ -162,6 +210,10 @@ bool updateGame2NonBlocking() {
               rgb.setColor(255, 0, 0);
               buzzer.playErrorTone();
               userInput = "";
+              // Reset final message flag and tip cache.
+              finalMessageDisplayed = false;
+              lastTip = "";
+              // Display the first tip again.
               lcd.clear();
               char tipHeader[17];
               sprintf(tipHeader, "Tip for note %d", 1);

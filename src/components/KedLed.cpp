@@ -1,5 +1,6 @@
 #include "KeyLed.h"
 #include <stdio.h>
+#include <string.h>
 
 KeyLed::KeyLed(uint8_t stbPin, uint8_t clkPin, uint8_t dioPin)
     : tm(stbPin, clkPin, dioPin) {}
@@ -17,17 +18,25 @@ void KeyLed::setLED(uint8_t index, bool state) {
 }
 
 void KeyLed::displayTime(uint32_t elapsed, uint32_t totalDuration, int attemptCount) {
+    // Calculate remaining time.
     unsigned long remaining = (totalDuration > elapsed) ? (totalDuration - elapsed) : 0;
     unsigned int secondsRemaining = remaining / 1000;
     int minutes = secondsRemaining / 60;
     int seconds = secondsRemaining % 60;
     
-    char clockStr[6];  // Increase size to 6 to hold "MM.SS" + null terminator.
-    sprintf(clockStr, "%02d.%02d", minutes, seconds);  // Insert a dot between minutes and seconds.
+    // Format time as "mmss" (always 4 characters, e.g., "0512" for 5:12).
+    char timeStr[5];
+    sprintf(timeStr, "%02d%02d", minutes, seconds);
     
-    char attemptChar = (attemptCount < 10) ? ('0' + attemptCount) : '9';
+    // Format the button count as a right-aligned number in a fixed 4-character field.
+    // This means a single-digit count will be printed as "   1", two digits as "  10", etc.
+    char countStr[5];
+    sprintf(countStr, "%4d", attemptCount);
+    
+    // Combine the two parts into an 8-character string.
     char disp[9];
-    sprintf(disp, "%s   %c", clockStr, attemptChar);
+    sprintf(disp, "%s%s", timeStr, countStr);
+    
     tm.displayText(disp);
 }
 

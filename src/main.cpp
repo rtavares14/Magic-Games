@@ -19,6 +19,10 @@ RGBLed rgb;
 Buzzer buzzer(PIN_BUZZER);
 Button button(PIN_BUTTON, 50);
 
+// New global variables for button press count.
+int totalButtonPresses = 0;
+int currentGamePresses = 0;
+
 // Application States
 enum AppState {
   STATE_INTRO,
@@ -31,13 +35,10 @@ enum AppState {
 AppState currentState = STATE_INTRO;
 uint32_t stateStartTime = 0;
 
-// Shared game variable (e.g. for attempt count)
-int currentGameAttempt = 0;
-
-// Update the timer display 
+// Update the timer display using the current game button press count.
 void updateTimerDisplay() {
   uint32_t elapsed = millis() - globalStartTime;
-  keyLed.displayTime(elapsed, TOTAL_TIME, currentGameAttempt);
+  keyLed.displayTime(elapsed, TOTAL_TIME, currentGamePresses);
 }
 
 // Intro State using millis() 
@@ -56,18 +57,15 @@ void updateIntro() {
   else if (elapsedState < 6000) {
     messageIndex = 2;
   }
-  else if (elapsedState < 8000) {
-    messageIndex = 3;
-  }
   else {
-    // Transition to Game 1 state
+    // Reset per-game press counter before starting Game 1.
+    currentGamePresses = 0;
     currentState = STATE_GAME1;
     stateStartTime = now;
     lastMessageIndex = -1;
     return;
   }
   
-  // Only update the display if the message state has changed.
   if (messageIndex != lastMessageIndex) {
     lcd.clear();
     switch(messageIndex) {
@@ -82,6 +80,10 @@ void updateIntro() {
         lcd.print("Have Fun");
         lcd.setCursor(0, 1);
         lcd.print("Good Luck");
+        Serial.println("------------------------------------");
+        Serial.println("-------------Main-Loop--------------");
+        Serial.println("The games will begin soon.");
+        Serial.println("Timer: 10 minutes");
         break;
       case 2:
         lcd.setCursor(0, 0);
@@ -94,7 +96,7 @@ void updateIntro() {
   }
 }
 
-// Non-blocking Game1 State
+// Game1 State
 void updateGame1() {
   bool finished = updateGame1NonBlocking();
   if (finished) {
@@ -115,6 +117,8 @@ void updateLoading() {
   rgb.loadingAnimation(elapsedState);
   
   if (elapsedState >= 5000) {
+    // Reset per-game press counter before starting Game 2.
+    currentGamePresses = 0;
     currentState = STATE_GAME2;
     stateStartTime = now;
   }
@@ -131,9 +135,28 @@ void updateGame2() {
 
 // Game Over State
 void updateGameOver() {
+  static bool printed = false;
   lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Game Over!");
+  if (!printed) {
+    lcd.setCursor(0, 0);
+    lcd.print("Game Over!");
+    Serial.println("------------------------------------");
+    Serial.println("-------------Game-Over!-------------");
+    Serial.println("------------------------------------");
+    printed = true;
+  }
+  // Display a prompt on the second line.
+  lcd.setCursor(0, 1);
+  lcd.print("Reset? Press btn");
+  
+  // If the button is pressed, reset the full game.
+  if (button.isPressed()) {
+    printed = false;
+    globalStartTime = millis();
+    stateStartTime = millis();
+    currentGamePresses = 0;
+    currentState = STATE_INTRO;
+  }
 }
 
 // Setup & Main Loop
@@ -152,7 +175,18 @@ void setup() {
 
 void loop() {
   updateTimerDisplay();
-  button.update();
+  button.update(); // Called only once per loop
+  
+  // Only count button presses when in game states.
+  if (currentState == STATE_GAME1 || currentState == STATE_GAME2) {
+    static bool lastButtonState = false;
+    bool currentButtonState = button.isPressed();
+    if (currentButtonState && !lastButtonState) {
+      totalButtonPresses++;
+      currentGamePresses++;
+    }
+    lastButtonState = currentButtonState;
+  }
   
   switch (currentState) {
     case STATE_INTRO:
@@ -171,6 +205,5 @@ void loop() {
       updateGameOver();
       break;
   }
-
   delay(10);
 }

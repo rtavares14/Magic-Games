@@ -19,6 +19,9 @@ extern Button button;
 extern uint32_t globalStartTime;
 extern const uint32_t TOTAL_TIME;
 
+// Declare the global game press counter.
+extern int currentGamePresses;
+
 #define FREQ_SEARCH            500
 #define FREQ_CORRECT           1200
 #define THRESHOLD              55
@@ -48,6 +51,8 @@ bool updateGame1NonBlocking() {
   static unsigned long confirmStartTime = 0;
   static unsigned long lastHoverBeepTime = 0;
   static bool safeOpened = false;
+  // New variable to record the start time of Game1.
+  static uint32_t game1StartTime = 0;
   
   // Check global timer expiration.
   uint32_t elapsedGlobal = millis() - globalStartTime;
@@ -68,7 +73,6 @@ bool updateGame1NonBlocking() {
   
   switch (gameState) {
     case GAME1_INIT: {
-      // Show a sequence of messages non-blocking.
       uint32_t t = millis() - stateStart;
       static int lastMsgIndex = -1;
       int msgIndex = -1;
@@ -80,10 +84,12 @@ bool updateGame1NonBlocking() {
         msgIndex = 2;
       } else if (t < 11000) {
         msgIndex = 3;
+      } else if (t < 14000) {
+        msgIndex = 4;
       } else {
         randomSeed(analogRead(A1));
         for (int i = 0; i < 3; i++) {
-          combo[i] = random(0, 361) * 10;
+          combo[i] = random(3, 33) * 100;
         }
         Serial.println("------------------------------------");
         Serial.println("---------------Game-1---------------");
@@ -98,6 +104,7 @@ bool updateGame1NonBlocking() {
         waitState = WAIT_FOR_CORRECT_VALUE;
         comboInitialized = true;
         gameState = GAME1_PLAY;
+        game1StartTime = millis();
         stateStart = millis();
         lastMsgIndex = -1;
         break;
@@ -114,9 +121,9 @@ bool updateGame1NonBlocking() {
              break;
            case 1:
              lcd.setCursor(0, 0);
-             lcd.print("Escape in 3 min");
+             lcd.print("Escape fast or");
              lcd.setCursor(0, 1);
-             lcd.print("or rocks hit you");
+             lcd.print("rocks hit you");
              break;
            case 2:
              lcd.setCursor(0, 0);
@@ -126,7 +133,13 @@ bool updateGame1NonBlocking() {
              break;
            case 3:
              lcd.setCursor(0, 0);
-             lcd.print("When found,");
+             lcd.print("When found, you");
+             lcd.setCursor(0, 1);
+             lcd.print("are close!");
+             break;
+           case 4:
+             lcd.setCursor(0, 0);
+             lcd.print("Dont forget to");
              lcd.setCursor(0, 1);
              lcd.print("press the button");
              break;
@@ -136,9 +149,9 @@ bool updateGame1NonBlocking() {
       break;
     }
     case GAME1_PLAY: {
-      // Update the timer display 
+      // Update the timer display using the game button press count.
       uint32_t elapsed = millis() - globalStartTime;
-      keyLed.displayTime(elapsed, TOTAL_TIME, currentStep);
+      keyLed.displayTime(elapsed, TOTAL_TIME, currentGamePresses);
       
       // Read potentiometer.
       Potentiometer potentiometer(PIN_POT);
@@ -199,7 +212,6 @@ bool updateGame1NonBlocking() {
       }
       
       // Process button input.
-      button.update();
       bool buttonPressed = button.isPressed();
       if (waitState == WAIT_FOR_CORRECT_VALUE) {
           if (distance < levelThreshold && buttonPressed) {
@@ -229,7 +241,8 @@ bool updateGame1NonBlocking() {
                   lcd.setCursor(0, 1);
                   lcd.print("Congrats!");
                   Serial.println("Vault opened!");
-                  keyLed.printTimeUsed(globalStartTime);
+                  keyLed.printTimeUsed(game1StartTime);
+                  Serial.println("Button presses: " + String(currentGamePresses));
                   rgb.setColor(0, 255, 0);
                   buzzer.playSuccessMelody();
                   safeOpened = true;
