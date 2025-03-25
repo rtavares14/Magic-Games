@@ -1,12 +1,12 @@
 #include <Arduino.h>
 #include "pins.h"
-#include "games/Game1.h"  
-#include "games/Game2.h"
-#include "components/RGBLed.h"
-#include "components/LCD.h"
-#include "components/KeyLed.h"
-#include "components/Buzzer.h"
-#include "components/Button.h"
+#include "Game1.h"  
+#include "Game2.h"
+#include "RGBLed.h"
+#include "LCD.h"
+#include "KeyLed.h"
+#include "Buzzer.h"
+#include "Button.h"
 
 // Total time: 10 minutes 
 extern const uint32_t TOTAL_TIME = 600000UL;
@@ -97,8 +97,8 @@ void updateIntro() {
 }
 
 // Game1 State
-void updateGame1() {
-  bool finished = updateGame1NonBlocking();
+void game1() {
+  bool finished = updateGame1();
   if (finished) {
     currentState = STATE_LOADING;
     stateStartTime = millis();
@@ -125,8 +125,8 @@ void updateLoading() {
 }
 
 // Game2 State
-void updateGame2() {
-  bool finished = updateGame2NonBlocking();
+void game2() {
+  bool finished = updateGame2();
   if (finished) {
     currentState = STATE_GAME_OVER;
     stateStartTime = millis();
@@ -193,13 +193,13 @@ void loop() {
       updateIntro();
       break;
     case STATE_GAME1:
-      updateGame1();
+      game1();
       break;
     case STATE_LOADING:
       updateLoading();
       break;
     case STATE_GAME2:
-      updateGame2();
+      game2();
       break;
     case STATE_GAME_OVER:
       updateGameOver();

@@ -1,11 +1,10 @@
-// Game2.cpp – Non-blocking version using non-blocking LCD printing
 #include "Game2.h"
 #include <Arduino.h>
-#include "../components/LCD.h"
-#include "../components/KeyLed.h"
-#include "../components/Buzzer.h"
-#include "../components/RGBLed.h"
-#include "../components/Button.h"
+#include "LCD.h"
+#include "KeyLed.h"
+#include "Buzzer.h"
+#include "RGBLed.h"
+#include "Button.h"
 #include "pins.h"
 
 // Declare global objects from main.cpp.
@@ -46,7 +45,7 @@ enum Game2State {
   GAME2_TIME_UP
 };
 
-bool updateGame2NonBlocking() {
+bool updateGame2() {
   static Game2State gameState = GAME2_INIT;
   static unsigned long stateStart = millis();
   static int attemptCount = 0;

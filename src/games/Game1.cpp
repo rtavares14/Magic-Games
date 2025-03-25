@@ -1,11 +1,11 @@
 #include "Game1.h"
 #include <Arduino.h>
-#include "../components/LCD.h"
-#include "../components/KeyLed.h"
-#include "../components/Buzzer.h"
-#include "../components/RGBLed.h"
-#include "../components/Button.h"
-#include "../components/Potentiometer.h"
+#include "LCD.h"
+#include "KeyLed.h"
+#include "Buzzer.h"
+#include "RGBLed.h"
+#include "Button.h"
+#include "Potentiometer.h"
 #include "pins.h"
 
 // Declare global objects from main.cpp.
@@ -39,7 +39,7 @@ enum Game1State {
 
 enum WaitState { WAIT_FOR_CORRECT_VALUE, CONFIRMING };
 
-bool updateGame1NonBlocking() {
+bool updateGame1() {
   // Use static variables to hold the game state between calls.
   static Game1State gameState = GAME1_INIT;
   static unsigned long stateStart = millis();
