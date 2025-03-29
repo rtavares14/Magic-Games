@@ -14,8 +14,8 @@
 #define PIN_BLUE 6
 
 // Key and LED module
-#define DIO_PIN 8  
-#define CLK_PIN 9  
+#define DIO_PIN 8
+#define CLK_PIN 9
 #define STB_PIN 10
 
 #endif
