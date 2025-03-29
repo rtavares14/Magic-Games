@@ -2,6 +2,7 @@
 #include "pins.h"
 #include "Game1.h"  
 #include "Game2.h"
+#include "Game3.h"
 #include "RGBLed.h"
 #include "LCD.h"
 #include "KeyLed.h"
@@ -29,6 +30,7 @@ enum AppState {
   STATE_GAME1,
   STATE_LOADING,
   STATE_GAME2,
+  STATE_GAME3,     
   STATE_GAME_OVER
 };
 
@@ -98,7 +100,7 @@ void updateIntro() {
 
 // Game1 State
 void game1() {
-  bool finished = updateGame1();
+  bool finished = updateGame3();
   if (finished) {
     currentState = STATE_LOADING;
     stateStartTime = millis();
@@ -127,6 +129,16 @@ void updateLoading() {
 // Game2 State
 void game2() {
   bool finished = updateGame2();
+  if (finished) {
+    // Transition to Game3 instead of Game Over.
+    currentState = STATE_GAME3;
+    stateStartTime = millis();
+  }
+}
+
+// Game3 State
+void game3() {
+  bool finished = updateGame1();
   if (finished) {
     currentState = STATE_GAME_OVER;
     stateStartTime = millis();
@@ -178,7 +190,7 @@ void loop() {
   button.update(); // Called only once per loop
   
   // Only count button presses when in game states.
-  if (currentState == STATE_GAME1 || currentState == STATE_GAME2) {
+  if (currentState == STATE_GAME1 || currentState == STATE_GAME2 || currentState == STATE_GAME3) {
     static bool lastButtonState = false;
     bool currentButtonState = button.isPressed();
     if (currentButtonState && !lastButtonState) {
@@ -200,6 +212,9 @@ void loop() {
       break;
     case STATE_GAME2:
       game2();
+      break;
+    case STATE_GAME3:
+      game3();
       break;
     case STATE_GAME_OVER:
       updateGameOver();
