@@ -41,6 +41,7 @@ enum Game2State
 {
   GAME2_INIT,
   GAME2_PLAY,
+  GAME2_WRONG, // New state for wrong melody waiting period.
   GAME2_COMPLETE,
   GAME2_TIME_UP
 };
@@ -56,25 +57,6 @@ bool updateGame2()
   // New variable to mark the start time of Game 2.
   static uint32_t game2StartTime = 0;
 
-  // Check global timer expiration.
-  uint32_t elapsedGlobal = millis() - globalStartTime;
-  if (elapsedGlobal >= TOTAL_TIME)
-  {
-    if (gameState != GAME2_TIME_UP)
-    {
-      gameState = GAME2_TIME_UP;
-      stateStart = millis();
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Time's up!");
-      lcd.setCursor(0, 1);
-      lcd.print("Game Over!");
-      buzzer.playTone(400, 200);
-      rgb.setColor(255, 0, 0);
-    }
-    return true;
-  }
-
   switch (gameState)
   {
   case GAME2_INIT:
@@ -87,11 +69,7 @@ bool updateGame2()
       msgIndex = 0;
       if (msgIndex != lastMsgIndex)
       {
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("Welcome: LEVEL 2");
-        lcd.setCursor(0, 1);
-        lcd.print("Find the tune!");
+        lcd.lcdShow("Welcome: LEVEL 2", "Find the tune!");
         rgb.setColor(0, 0, 255);
         lastMsgIndex = msgIndex;
       }
@@ -99,17 +77,9 @@ bool updateGame2()
     else
     {
       // After 2 seconds, clear the welcome message and display the first tip.
-      lcd.clear();
       char tipHeader[17];
       sprintf(tipHeader, "Tip for note %d", 1);
-      lcd.setCursor(0, 0);
-      lcd.print(tipHeader);
-      lcd.setCursor(0, 1);
-      String tip = tips[0];
-      if (tip.length() > 16)
-        tip = tip.substring(0, 16);
-      lcd.print(tip.c_str());
-      // Print debug header for Game2.
+      lcd.lcdShow(tipHeader, tips[0].substring(0, 16).c_str());
       Serial.println("------------------------------------");
       Serial.println("---------------Game-2---------------");
       Serial.println("Melody generated!");
@@ -163,21 +133,13 @@ bool updateGame2()
           tip = tip.substring(0, 16);
         if (tip != lastTip)
         {
-          lcd.clear();
-          lcd.setCursor(0, 0);
-          lcd.print(tipHeader);
-          lcd.setCursor(0, 1);
-          lcd.print(tip.c_str());
+          lcd.lcdShow(tipHeader, tip.c_str());
           lastTip = tip;
         }
       }
       else if (userInput.length() == MELODY_LENGTH && !finalMessageDisplayed)
       {
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("Maybe give a ,");
-        lcd.setCursor(0, 1);
-        lcd.print("try to the melody");
+        lcd.lcdShow("Maybe give a ,", "try to the melody");
         finalMessageDisplayed = true;
       }
     }
@@ -185,7 +147,10 @@ bool updateGame2()
 
     if (button.isPressed() && userInput.length() > 0)
     {
-      // Compute how many consecutive digits match the target melody.
+      // Debug: print current user input.
+      Serial.print("User submitted melody: ");
+      Serial.println(userInput);
+
       int correctCount = 0;
       for (int i = 0; i < userInput.length() && i < targetMelody.length(); i++)
       {
@@ -195,21 +160,15 @@ bool updateGame2()
           break;
       }
 
-      // If the complete melody is correct.
       if (userInput.equals(targetMelody))
       {
         Serial.print("Try number ");
         Serial.print(attemptCount + 1);
         Serial.println(": melody correct");
-        // Print time used in Game 2 (measured from game2StartTime)
         keyLed.printTimeUsed(game2StartTime);
         Serial.print("Button presses: ");
         Serial.println(currentGamePresses);
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("Correct Tune!");
-        lcd.setCursor(0, 1);
-        lcd.print("Well done!");
+        lcd.lcdShow("Correct Tune!", "Well done!");
         rgb.setColor(0, 255, 0);
         buzzer.playSuccessMelody();
         gameState = GAME2_COMPLETE;
@@ -223,31 +182,25 @@ bool updateGame2()
         Serial.print(": ");
         Serial.print(correctCount);
         Serial.println(" correct");
-        // Deduct 30 seconds from the global timer.
         globalStartTime -= 30000;
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("Wrong Tune!");
-        lcd.setCursor(0, 1);
-        lcd.print("Try again!");
+        lcd.lcdShow("Wrong Tune!", "Try again!");
         rgb.setColor(255, 0, 0);
         buzzer.playErrorTone();
-        userInput = "";
-        // Reset final message flag and tip cache.
-        finalMessageDisplayed = false;
-        lastTip = "";
-        // Display the first tip again.
-        lcd.clear();
-        char tipHeader[17];
-        sprintf(tipHeader, "Tip for note %d", 1);
-        lcd.setCursor(0, 0);
-        lcd.print(tipHeader);
-        lcd.setCursor(0, 1);
-        String tip = tips[0];
-        if (tip.length() > 16)
-          tip = tip.substring(0, 16);
-        lcd.print(tip.c_str());
+        gameState = GAME2_WRONG;
+        stateStart = millis();
       }
+    }
+    break;
+  }
+  case GAME2_WRONG:
+  {
+    if (millis() - stateStart >= 1000)
+    {
+      rgb.setColor(0, 0, 255);
+      userInput = "";
+      lcd.lcdShow("Tip for note 1", tips[0].substring(0, 16).c_str());
+      gameState = GAME2_PLAY;
+      stateStart = millis();
     }
     break;
   }

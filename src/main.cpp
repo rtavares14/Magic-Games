@@ -29,10 +29,14 @@ enum AppState
 {
   STATE_INTRO,
   STATE_GAME1,
-  STATE_LOADING,
+  STATE_LOADING1,
   STATE_GAME2,
+  STATE_LOADING2,
   STATE_GAME3,
-  STATE_GAME_OVER
+  STATE_LOADING3,
+  STATE_GAME4,
+  STATE_GAME_OVER,
+  STATE_GAME_WON
 };
 
 AppState currentState = STATE_INTRO;
@@ -81,26 +85,17 @@ void updateIntro()
     switch (messageIndex)
     {
     case 0:
-      lcd.setCursor(0, 0);
-      lcd.print("New Adventure");
-      lcd.setCursor(0, 1);
-      lcd.print("has begun!");
+      lcd.lcdShow("New Adventure", "has begun!");
       break;
     case 1:
-      lcd.setCursor(0, 0);
-      lcd.print("Have Fun");
-      lcd.setCursor(0, 1);
-      lcd.print("Good Luck");
+      lcd.lcdShow("Have Fun", "Good Luck!");
       Serial.println("------------------------------------");
       Serial.println("-------------Main-Loop--------------");
       Serial.println("The games will begin soon.");
       Serial.println("Timer: 10 minutes");
       break;
     case 2:
-      lcd.setCursor(0, 0);
-      lcd.print("Starting Games");
-      lcd.setCursor(0, 1);
-      lcd.print("with 10m timer...");
+      lcd.lcdShow("Starting Games", "with 10m timer...");
       break;
     }
     lastMessageIndex = messageIndex;
@@ -110,33 +105,46 @@ void updateIntro()
 // Game1 State
 void game1()
 {
-  bool finished = updateGame3();
+  bool finished = updateGame1();
   if (finished)
   {
-    currentState = STATE_LOADING;
+    currentState = STATE_LOADING1;
     stateStartTime = millis();
   }
 }
 
 // Loading State (between games)
-void updateLoading()
+void updateLoadingGame(const char *loadingMessage, AppState nextState)
 {
-  uint32_t now = millis();
-  uint32_t elapsedState = now - stateStartTime;
-
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Game 2 Loading");
-
-  rgb.loadingAnimation(elapsedState);
-
-  if (elapsedState >= 5000)
-  {
-    // Reset per-game press counter before starting Game 2.
-    currentGamePresses = 0;
-    currentState = STATE_GAME2;
-    stateStartTime = now;
-  }
+    uint32_t now = millis();
+    uint32_t elapsedState = now - stateStartTime;
+    static int lastMsgIndex = -1;
+    int messageIndex = -1;
+    
+    if (elapsedState < 3000)
+    {
+        messageIndex = 0;
+    }
+    else
+    {
+        // After 3000ms, reset the per-game press counter, set the next state, and update stateStartTime.
+        currentGamePresses = 0;
+        currentState = nextState;
+        stateStartTime = now;
+        lastMsgIndex = -1;
+        return;
+    }
+    
+    // Only update the LCD if the message index has changed.
+    if (messageIndex != lastMsgIndex)
+    {
+        lcd.clear();
+        lcd.lcdShow(loadingMessage, "Loading...");
+        lastMsgIndex = messageIndex;
+    }
+    
+    // Run the loading animation using the elapsed time.
+    rgb.loadingAnimation(elapsedState);
 }
 
 // Game2 State
@@ -146,7 +154,7 @@ void game2()
   if (finished)
   {
     // Transition to Game3 instead of Game Over.
-    currentState = STATE_GAME3;
+    currentState = STATE_LOADING2;
     stateStartTime = millis();
   }
 }
@@ -154,7 +162,7 @@ void game2()
 // Game3 State
 void game3()
 {
-  bool finished = updateGame1();
+  bool finished = updateGame3();
   if (finished)
   {
     currentState = STATE_GAME_OVER;
@@ -169,25 +177,21 @@ void updateGameOver()
   lcd.clear();
   if (!printed)
   {
-    lcd.setCursor(0, 0);
-    lcd.print("Game Over!");
+    lcd.lcdShow("Game Over", "Press button");
     Serial.println("------------------------------------");
     Serial.println("-------------Game-Over!-------------");
     Serial.println("------------------------------------");
     printed = true;
-  }
-  // Display a prompt on the second line.
-  lcd.setCursor(0, 1);
-  lcd.print("Reset? Press btn");
 
-  // If the button is pressed, reset the full game.
-  if (button.isPressed())
-  {
-    printed = false;
-    globalStartTime = millis();
-    stateStartTime = millis();
-    currentGamePresses = 0;
-    currentState = STATE_INTRO;
+    // If the button is pressed, reset the full game.
+    if (button.isPressed())
+    {
+      printed = false;
+      globalStartTime = millis();
+      stateStartTime = millis();
+      currentGamePresses = 0;
+      currentState = STATE_INTRO;
+    }
   }
 }
 
@@ -232,15 +236,21 @@ void loop()
   case STATE_GAME1:
     game1();
     break;
-  case STATE_LOADING:
-    updateLoading();
+  case STATE_LOADING1:
+    updateLoadingGame("Game 2 Loading", STATE_GAME2);
     break;
   case STATE_GAME2:
     game2();
     break;
+  case STATE_LOADING2:
+    updateLoadingGame("Game 3 Loading", STATE_GAME3);
+    break;
   case STATE_GAME3:
     game3();
     break;
+  case STATE_LOADING3:
+    updateLoadingGame("Game 4 Loading", STATE_GAME4);
+    break;  
   case STATE_GAME_OVER:
     updateGameOver();
     break;

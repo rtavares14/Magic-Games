@@ -7,6 +7,12 @@
 #include "Button.h"
 #include "pins.h"
 
+// Use the global timer defined in main.cpp.
+extern uint32_t globalStartTime;
+extern const uint32_t TOTAL_TIME;
+extern int currentGamePresses;
+static uint32_t game3StartTime = 0;
+
 extern LCD lcd;
 extern KeyLed keyLed;
 extern RGBLed rgb;
@@ -48,11 +54,7 @@ bool updateGame3()
             msgIndex = 0;
             if (msgIndex != lastMsgIndex)
             {
-                lcd.clear();
-                lcd.setCursor(0, 0);
-                lcd.print("Welcome: LEVEL 3");
-                lcd.setCursor(0, 1);
-                lcd.print("Color Game");
+                lcd.lcdShow("Welcome: LEVEL 3", "Color Game");
                 lastMsgIndex = msgIndex;
             }
         }
@@ -61,23 +63,22 @@ bool updateGame3()
             msgIndex = 1;
             if (msgIndex != lastMsgIndex)
             {
-                lcd.clear();
-                lcd.setCursor(0, 0);
-                lcd.print("Get ready...");
-                lcd.setCursor(0, 1);
-                lcd.print("Time is ticking");
+                lcd.lcdShow("Get ready...", "Time is ticking");
                 lastMsgIndex = msgIndex;
             }
         }
         else
         {
-            // After 4000ms, generate target color and move to next state.
-            targetRed = (random(0, 26)) * 10; // 0 to 250
-            targetGreen = (random(0, 26)) * 10;
-            targetBlue = (random(0, 26)) * 10;
-            char dbg[50];
-            sprintf(dbg, "Color to mach : R:%03d G:%03d B:%03d", targetRed, targetGreen, targetBlue);
-            Serial.println(dbg);
+            // After 4000ms, generate target color and transition.
+            rgb.getRandomColor(targetRed, targetGreen, targetBlue);
+            {
+                char dbg[50];
+                Serial.println("------------------------------------");
+                Serial.println("---------------Game-3---------------");
+                Serial.println("Colot generated!");
+                sprintf(dbg, "Color to mach : R:%03d G:%03d B:%03d", targetRed, targetGreen, targetBlue);
+                Serial.println(dbg);
+            }
             // Reset user's guess.
             guessRed = 0;
             guessGreen = 0;
@@ -100,11 +101,7 @@ bool updateGame3()
             msgIndex = 0;
             if (msgIndex != lastMsgIndex)
             {
-                lcd.clear();
-                lcd.setCursor(0, 0);
-                lcd.print("Memorize this");
-                lcd.setCursor(0, 1);
-                lcd.print("color!");
+                lcd.lcdShow("Memorize this", "color!");
                 lastMsgIndex = msgIndex;
             }
         }
@@ -113,11 +110,7 @@ bool updateGame3()
             msgIndex = 1;
             if (msgIndex != lastMsgIndex)
             {
-                lcd.clear();
-                lcd.setCursor(0, 0);
-                lcd.print("Press btn when");
-                lcd.setCursor(0, 1);
-                lcd.print("ready");
+                lcd.lcdShow("Press btn when", "ready");
                 lastMsgIndex = msgIndex;
             }
         }
@@ -127,13 +120,16 @@ bool updateGame3()
             stateStart = millis();
             gameState = GAME3_USER_GUESS;
             lastMsgIndex = -1;
+            // Initialize game stats for the guessing phase.
+            game3StartTime = millis();
+
             delay(200); // Debounce delay.
         }
         break;
     }
     case GAME3_USER_GUESS:
     {
-        // Interactive state; update LCD continuously based on user input.
+        // Process key input for channel selection and reset.
         uint8_t keys = keyLed.readButtons();
         if (keys & 0x80)
         { // Reset guess.
@@ -159,11 +155,10 @@ bool updateGame3()
             delay(200);
         }
 
-        // Read potentiometer and map to a discrete value.
+        // Read potentiometer and update only the active channel.
         int potValue = analogRead(PIN_POT);
         int step = map(potValue, 0, 1023, 0, 53);
         int discreteValue = step * 5;
-
         if (currentChannel == 0)
             guessRed = discreteValue;
         else if (currentChannel == 1)
@@ -174,20 +169,28 @@ bool updateGame3()
         // Update LED to show user's current guess.
         rgb.setColor(guessRed, guessGreen, guessBlue);
 
-        // Update LCD display (clearing only if values change is less critical here).
-        char line0[17];
-        char line1[17];
-        sprintf(line0, "R:%03d G:%03d", guessRed, guessGreen);
-        sprintf(line1, "B:%03d  btn:Done", guessBlue);
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print(line0);
-        lcd.setCursor(0, 1);
-        lcd.print(line1);
+        // Update the LCD every 500 ms.
+        static unsigned long lastDisplayUpdate = 0;
+        if (millis() - lastDisplayUpdate >= 500)
+        {
+            char newLine0[17];
+            char newLine1[17];
+            sprintf(newLine0, "R:%03d G:%03d", guessRed, guessGreen);
+            sprintf(newLine1, "B:%03d  btn:Done", guessBlue);
+            static char lastLine0[17] = "";
+            static char lastLine1[17] = "";
+            if (strcmp(newLine0, lastLine0) != 0 || strcmp(newLine1, lastLine1) != 0)
+            {
+                lcd.lcdShow(newLine0, newLine1);
+                strcpy(lastLine0, newLine0);
+                strcpy(lastLine1, newLine1);
+            }
+            lastDisplayUpdate = millis();
+        }
 
         if (button.isPressed())
         {
-            stateStart = millis();
+            // Increment attempt counter each time a guess is submitted.
             gameState = GAME3_VALIDATE;
             delay(200);
         }
@@ -208,8 +211,6 @@ bool updateGame3()
         {
             Serial.println("Right color congrats");
             gameState = GAME3_SUCCESS;
-            stateStart = millis();
-            buzzer.playSuccessMelody();
         }
         else
         {
@@ -223,56 +224,61 @@ bool updateGame3()
     case GAME3_SUCCESS:
     {
         static int lastMsgIndex = -1;
-        int msgIndex = 0; // Only one message for success.
-        if (elapsed < 2000)
+        int phase = elapsed / 2000;
+        if (phase != lastMsgIndex)
         {
-            if (msgIndex != lastMsgIndex)
-            {
-                lcd.clear();
-                lcd.setCursor(0, 0);
-                lcd.print("Correct! Well");
-                lcd.setCursor(0, 1);
-                lcd.print("done!");
-                rgb.setColor(guessRed, guessGreen, guessBlue);
-                lastMsgIndex = msgIndex;
-            }
+            lcd.clear();
+            lastMsgIndex = phase;
         }
-        else
+        if (phase == 0)
         {
-            return true; // End game after 2000 ms.
+            lcd.lcdShow("Congrats you made", "the right color");
+        }
+        else if (phase == 1)
+        {
+            lcd.lcdShow("You have a good", "eye for this i see");
+        }
+    
+        static bool winningTriggered = false;
+        if (elapsed >= 6000 && !winningTriggered)
+        {
+            // Play winning sound and display green light.
+            rgb.setColor(0, 255, 0);
+            buzzer.playSuccessMelody();
+            keyLed.printTimeUsed(game3StartTime);
+            Serial.print("Button presses: ");
+            Serial.println(currentGamePresses);
+            winningTriggered = true;
+        }
+        if (elapsed >= 6000)
+        {
+            return true; // End game after 6000ms.
         }
         break;
     }
     case GAME3_FAIL:
     {
         static int lastMsgIndex = -1;
-        int msgIndex = 0; // Only one failure message.
+        int msgIndex = 0; // Single failure message.
         if (elapsed < 2000)
         {
             if (msgIndex != lastMsgIndex)
             {
-                lcd.clear();
-                lcd.setCursor(0, 0);
-                lcd.print("Wrong color!");
-                lcd.setCursor(0, 1);
-                lcd.print("Try again...");
+                lcd.lcdShow("Wrong color!", "Try again...");
                 lastMsgIndex = msgIndex;
             }
         }
         else
         {
-            // After 2000 ms, generate a new target color and restart.
-            targetRed = (random(0, 26)) * 10;
-            targetGreen = (random(0, 26)) * 10;
-            targetBlue = (random(0, 26)) * 10;
-            guessRed = 0;
-            guessGreen = 0;
-            guessBlue = 0;
-            currentChannel = 0;
+            // After 2000ms, generate a new target color and restart.
+            rgb.getRandomColor(targetRed, targetGreen, targetBlue);
+            guessRed, guessGreen, guessBlue, currentChannel = 0;
             stateStart = millis();
             gameState = GAME3_SHOW_COLOR;
             lastMsgIndex = -1;
-        }
+            char dbg[50];
+            sprintf(dbg, "Color to mach : R:%03d G:%03d B:%03d", targetRed, targetGreen, targetBlue);
+            Serial.println(dbg);        }
         break;
     }
     }

@@ -46,7 +46,6 @@ enum WaitState
 
 bool updateGame1()
 {
-  // Use static variables to hold the game state between calls.
   static Game1State gameState = GAME1_INIT;
   static unsigned long stateStart = millis();
   static int currentStep = 0;
@@ -68,11 +67,7 @@ bool updateGame1()
     {
       gameState = GAME1_TIME_UP;
       stateStart = millis();
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Time is up!");
-      lcd.setCursor(0, 1);
-      lcd.print("Vault locked!");
+      lcd.lcdShow("Time is up!", "Vault locked!");
       buzzer.playTone(400, 200);
       rgb.setColor(255, 0, 0);
     }
@@ -136,40 +131,17 @@ bool updateGame1()
 
     if (msgIndex != lastMsgIndex)
     {
-      lcd.clear();
-      switch (msgIndex)
-      {
-      case 0:
-        lcd.setCursor(0, 0);
-        lcd.print("Welcome: LEVEL 1");
-        lcd.setCursor(0, 1);
-        lcd.print("Get Ready!");
-        break;
-      case 1:
-        lcd.setCursor(0, 0);
-        lcd.print("Escape fast or");
-        lcd.setCursor(0, 1);
-        lcd.print("rocks hit you");
-        break;
-      case 2:
-        lcd.setCursor(0, 0);
-        lcd.print("Listen carefully");
-        lcd.setCursor(0, 1);
-        lcd.print("find the beep");
-        break;
-      case 3:
-        lcd.setCursor(0, 0);
-        lcd.print("When found, you");
-        lcd.setCursor(0, 1);
-        lcd.print("are close!");
-        break;
-      case 4:
-        lcd.setCursor(0, 0);
-        lcd.print("Dont forget to");
-        lcd.setCursor(0, 1);
-        lcd.print("press the button");
-        break;
-      }
+      lcd.lcdShow(
+          (msgIndex == 0) ? "Welcome: LEVEL 1" :
+          (msgIndex == 1) ? "Escape fast or" :
+          (msgIndex == 2) ? "Listen carefully" :
+          (msgIndex == 3) ? "When found, you" :
+                            "Dont forget to",
+          (msgIndex == 0) ? "Get Ready!" :
+          (msgIndex == 1) ? "rocks hit you" :
+          (msgIndex == 2) ? "find the beep" :
+          (msgIndex == 3) ? "are close!" :
+                            "press the button");
       lastMsgIndex = msgIndex;
     }
     break;
@@ -252,6 +224,12 @@ bool updateGame1()
 
     // Process button input.
     bool buttonPressed = button.isPressed();
+    // Debug print the potentiometer value when button is clicked.
+    if (buttonPressed)
+    {
+      Serial.print("Button pressed with value: ");
+      Serial.println(currentValue);
+    }
     if (waitState == WAIT_FOR_CORRECT_VALUE)
     {
       if (distance < levelThreshold && buttonPressed)
@@ -272,21 +250,13 @@ bool updateGame1()
         Serial.println(" confirmed!");
         if (currentStep < 3)
         {
-          lcd.clear();
-          lcd.setCursor(0, 0);
           char stepMsg[17];
           sprintf(stepMsg, "STEP %d OF 3 DONE", currentStep);
-          lcd.print(stepMsg);
-          lcd.setCursor(0, 1);
-          lcd.print("KEEP GOING");
+          lcd.lcdShow(stepMsg, "KEEP GOING");
         }
         else
         {
-          lcd.clear();
-          lcd.setCursor(0, 0);
-          lcd.print("Vault opened!");
-          lcd.setCursor(0, 1);
-          lcd.print("Congrats!");
+          lcd.lcdShow("Vault opened!", "Congrats!");
           Serial.println("Vault opened!");
           keyLed.printTimeUsed(game1StartTime);
           Serial.println("Button presses: " + String(currentGamePresses));
