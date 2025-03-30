@@ -72,3 +72,9 @@ void RGBLed::loadingAnimation(uint32_t elapsed)
     else
         setColor(255, 255, 255);
 }
+
+void getRandomColor(int &red, int &green, int &blue) {
+    red = (random(0, 26)) * 10;
+    green = (random(0, 26)) * 10;
+    blue = (random(0, 26)) * 10;
+}
