@@ -12,7 +12,7 @@ class Score {
 
     Score();
     Score(int id, int presses, unsigned long time);
-    void calculatePoints();
+    void calculatePoints(int presses, unsigned long time);
 };
 
 #endif

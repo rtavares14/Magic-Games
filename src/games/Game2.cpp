@@ -6,6 +6,7 @@
 #include "RGBLed.h"
 #include "Button.h"
 #include "pins.h"
+#include "Score.h"
 
 // Declare global objects from main.cpp.
 extern LCD lcd;
@@ -17,7 +18,8 @@ extern Button button;
 // Use the global timer defined in main.cpp.
 extern uint32_t globalStartTime;
 extern const uint32_t TOTAL_TIME;
-extern int currentGamePresses; // From main.cpp
+extern int currentGamePresses;
+extern int game2FinalScore;
 
 const int MELODY_LENGTH = 8;
 const int KEY_DEBOUNCE_DELAY = 150;
@@ -41,7 +43,7 @@ enum Game2State
 {
   GAME2_INIT,
   GAME2_PLAY,
-  GAME2_WRONG, // New state for wrong melody waiting period.
+  GAME2_WRONG,
   GAME2_COMPLETE,
   GAME2_TIME_UP
 };
@@ -51,10 +53,11 @@ bool updateGame2()
   static Game2State gameState = GAME2_INIT;
   static unsigned long stateStart = millis();
   static int attemptCount = 0;
+  static unsigned long penaltyTime = 0; // Accumulate penalty time here
   static String userInput = "";
   static unsigned long lastKeyPressTime = 0;
   static uint8_t lastButtons = 0;
-  // New variable to mark the start time of Game 2.
+  // Record the start time of Game 2 (do not modify after this)
   static uint32_t game2StartTime = 0;
 
   switch (gameState)
@@ -76,7 +79,7 @@ bool updateGame2()
     }
     else
     {
-      // After 2 seconds, clear the welcome message and display the first tip.
+      // After 2 seconds, display the first tip.
       char tipHeader[17];
       sprintf(tipHeader, "Tip for note %d", 1);
       lcd.lcdShow(tipHeader, tips[0].substring(0, 16).c_str());
@@ -168,7 +171,24 @@ bool updateGame2()
         keyLed.printTimeUsed(game2StartTime);
         Serial.print("Button presses: ");
         Serial.println(currentGamePresses);
+
+        // Compute effective time as elapsed time plus the accumulated penalty.
+        unsigned long effectiveTime = (millis() - game2StartTime) + penaltyTime;
+
+        unsigned long totalSeconds = effectiveTime / 1000;
+        unsigned long minutes = totalSeconds / 60;
+        unsigned long seconds = totalSeconds % 60;
+        Serial.print("Time used: ");
+        Serial.print(minutes);
+        Serial.print("m and ");
+        Serial.print(seconds);
+        Serial.println("s");
+
         lcd.lcdShow("Correct Tune!", "Well done!");
+        Score game2Score(2, currentGamePresses, effectiveTime);
+        game2FinalScore = game2Score.points;
+        Serial.print("Game 2 Score: ");
+        Serial.println(game2Score.points);
         rgb.setColor(0, 255, 0);
         buzzer.playSuccessMelody();
         gameState = GAME2_COMPLETE;
@@ -177,12 +197,13 @@ bool updateGame2()
       else
       {
         attemptCount++;
+        penaltyTime += 30000;
+        globalStartTime -= 30000;
         Serial.print("Try number ");
         Serial.print(attemptCount);
         Serial.print(": ");
         Serial.print(correctCount);
         Serial.println(" correct");
-        globalStartTime -= 30000;
         lcd.lcdShow("Wrong Tune!", "Try again!");
         rgb.setColor(255, 0, 0);
         buzzer.playErrorTone();
@@ -213,6 +234,5 @@ bool updateGame2()
   case GAME2_TIME_UP:
     return true;
   }
-
   return false; // Game2 is still running.
 }

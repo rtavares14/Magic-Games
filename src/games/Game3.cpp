@@ -6,12 +6,14 @@
 #include "Buzzer.h"
 #include "Button.h"
 #include "pins.h"
+#include "Score.h"
 
 // Use the global timer defined in main.cpp.
 extern uint32_t globalStartTime;
 extern const uint32_t TOTAL_TIME;
 extern int currentGamePresses;
 static uint32_t game3StartTime = 0;
+extern int game3FinalScore;
 
 extern LCD lcd;
 extern KeyLed keyLed;
@@ -242,6 +244,11 @@ bool updateGame3()
             keyLed.printTimeUsed(game3StartTime);
             Serial.print("Button presses: ");
             Serial.println(currentGamePresses);
+            unsigned long timeTaken = millis() - game3StartTime;
+            Score game3Score(3, currentGamePresses, timeTaken);
+            game3FinalScore = game3Score.points;
+            Serial.print("Game 3 Score: ");
+            Serial.println(game3Score.points);
             winningTriggered = true;
         }
         if (elapsed >= 6000)

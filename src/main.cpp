@@ -24,6 +24,12 @@ Button button(PIN_BUTTON, 50);
 int totalButtonPresses = 0;
 int currentGamePresses = 0;
 
+int game1FinalScore = 0;
+int game2FinalScore = 0;
+int game3FinalScore = 0;
+int game4FinalScore = 0;
+int totalScore = 0;
+
 // Application States (note: STATE_GAME_OVER removed; TIME_UP is now game over)
 enum AppState
 {
@@ -45,6 +51,7 @@ uint32_t stateStartTime = 0;
 // Update the timer display using the current game button press count.
 void updateTimerDisplay()
 {
+  if (currentState == STATE_GAME_WON) return;
   uint32_t elapsed = millis() - globalStartTime;
   keyLed.displayTime(elapsed, TOTAL_TIME, currentGamePresses);
 }
@@ -135,7 +142,7 @@ void updateLoadingGame(const char *loadingMessage, AppState nextState)
 // Game state functions
 void game1()
 {
-  bool finished = updateGame1();
+  bool finished = updateGame2();
   if (finished)
   {
     currentState = STATE_LOADING1;
@@ -170,6 +177,7 @@ void updateTimeUp()
   static int lastMsgIndex = -1;
   int msgIndex = -1;
   rgb.setColor(255, 0, 0);
+  buzzer.playGameOverMelody();
 
   if (elapsedState < 3000)
   {
@@ -180,47 +188,45 @@ void updateTimeUp()
           lastMsgIndex = msgIndex;
       }
   }
-  else
-  {
-      msgIndex = 1;
-      if (msgIndex != lastMsgIndex)
-      {
-          lcd.lcdShow("Reset? Press btn", "");
-          lastMsgIndex = msgIndex;
-      }
-  }
 }
 
 // New function: Update Game Won state with celebration.
 void updateGameWon()
 {
+  totalScore = game1FinalScore + game2FinalScore + game3FinalScore + game4FinalScore;
   uint32_t now = millis();
   uint32_t elapsedState = now - stateStartTime;
   static int lastMsgIndex = -1;
   int msgIndex = -1;
+  Serial.print("BTN PRESSES: ");
+  Serial.println(totalButtonPresses);
+  Serial.print("POINTS: ");
+  Serial.println(totalScore);
 
-  if (elapsedState < 3000)
-  {
-    msgIndex = 0;
-    if (msgIndex != lastMsgIndex)
-    {
-      lcd.clear();
-      lcd.lcdShow("GAME WON!", "Congratulations!");
-      lastMsgIndex = msgIndex;
-    }
-  }
+  // Use a 6000ms cycle: first 3000ms for "GAME WON!" then 3000ms for stats.
+  uint32_t cycleTime = elapsedState % 6000;
+  
+  // Blink the green LED every 500ms.
+  if ((elapsedState / 500) % 2 == 0)
+    rgb.setColor(0, 255, 0);
   else
-  {
-    // Blink green LED every 500ms and play a celebratory tone.
-    if ((elapsedState / 500) % 2 == 0)
-      rgb.setColor(0, 255, 0);
-    else
-      rgb.setColor(0, 0, 0);
+    rgb.setColor(0, 0, 0);
 
-    if (elapsedState % 3000 < 50) // Play success melody periodically.
-    {
-      buzzer.playSuccessMelody();
-    }
+  // Play the success melody periodically (every 3000ms, within a 50ms window).
+  if (elapsedState % 5000 < 50)
+    buzzer.playSuccessMelody();
+  
+  // For the first half of the cycle, show "GAME WON!" message.
+  if (cycleTime < 5000) {
+    lcd.clear();
+    lcd.lcdShow("GAME WON!", "Congratulations!");
+  }
+  // For the second half, show the stats.
+  else {
+    String line0 = "BTN PRESSES: " + String(totalButtonPresses);
+    String line1 = "POINTS: " + String(totalScore);
+    lcd.clear();
+    lcd.lcdShow(line0.c_str(), line1.c_str());
   }
 }
 

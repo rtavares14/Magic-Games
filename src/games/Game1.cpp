@@ -7,6 +7,7 @@
 #include "Button.h"
 #include "Potentiometer.h"
 #include "pins.h"
+#include "Score.h"
 
 // Declare global objects from main.cpp.
 extern LCD lcd;
@@ -21,6 +22,7 @@ extern const uint32_t TOTAL_TIME;
 
 // Declare the global game press counter.
 extern int currentGamePresses;
+extern int game1FinalScore;
 
 #define FREQ_SEARCH 500
 #define FREQ_CORRECT 1200
@@ -148,7 +150,6 @@ bool updateGame1()
   }
   case GAME1_PLAY:
   {
-    // Update the timer display using the game button press count.
     uint32_t elapsed = millis() - globalStartTime;
     keyLed.displayTime(elapsed, TOTAL_TIME, currentGamePresses);
 
@@ -159,7 +160,7 @@ bool updateGame1()
     if (abs(currentValue - lastPrintedValue) > PRINT_CHANGE_THRESHOLD)
       lastPrintedValue = currentValue;
 
-    // Set thresholds based on current step (levels 1 to 3).
+    // Set thresholds based on current step.
     int currentLevel = currentStep + 1;
     int levelThreshold, levelTone;
     switch (currentLevel)
@@ -185,7 +186,7 @@ bool updateGame1()
     int target = combo[currentStep];
     int distance = abs(currentValue - target);
 
-    // Tone Generation
+    // Tone generation based on distance.
     if (distance < levelThreshold)
     {
       buzzer.playTone(levelTone, 50);
@@ -209,7 +210,7 @@ bool updateGame1()
       buzzer.playTone(toneFreq, 50);
     }
 
-    // LED Feedback.
+    // LED feedback.
     if (distance < levelThreshold)
     {
       if (currentLevel == 3)
@@ -224,7 +225,6 @@ bool updateGame1()
 
     // Process button input.
     bool buttonPressed = button.isPressed();
-    // Debug print the potentiometer value when button is clicked.
     if (buttonPressed)
     {
       Serial.print("Button pressed with value: ");
@@ -260,6 +260,11 @@ bool updateGame1()
           Serial.println("Vault opened!");
           keyLed.printTimeUsed(game1StartTime);
           Serial.println("Button presses: " + String(currentGamePresses));
+          unsigned long timeTaken = millis() - game1StartTime;
+          Score game1Score(1, currentGamePresses, timeTaken);
+          game1FinalScore = game1Score.points;
+          Serial.print("Game 1 Score: ");
+          Serial.println(game1Score.points);
           rgb.setColor(0, 255, 0);
           buzzer.playSuccessMelody();
           safeOpened = true;
