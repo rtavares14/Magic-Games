@@ -32,3 +32,23 @@ void Buzzer::playSuccessMelody()
   playTone(melody[7], 200);
   delay(200);
 }
+
+void Buzzer::playGameOverMelody()
+{
+  int melody[] = {523, 493, 440, 392, 349, 329, 293, 261};
+  for (int i = 0; i < 8; i++)
+  {
+    playTone(melody[i], 100);
+    delay(50);
+  }
+}
+
+void Buzzer::playWinningMelody()
+{
+  int melody[] = {261, 293, 329, 349, 392, 440, 493, 523};
+  for (int i = 0; i < 8; i++)
+  {
+    playTone(melody[i], 100);
+    delay(50);
+  }
+}

@@ -10,6 +10,8 @@ public:
     void playTone(int frequency, int duration);
     void playErrorTone();
     void playSuccessMelody();
+    void playGameOverMelody();
+    void playWinningMelody();
     
 private:
     uint8_t buzzerPin;

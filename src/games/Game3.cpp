@@ -72,6 +72,7 @@ bool updateGame3()
             // After 4000ms, generate target color and transition.
             rgb.getRandomColor(targetRed, targetGreen, targetBlue);
             {
+                rgb.getRandomColor(targetRed, targetGreen, targetBlue);
                 char dbg[50];
                 Serial.println("------------------------------------");
                 Serial.println("---------------Game-3---------------");
@@ -157,8 +158,8 @@ bool updateGame3()
 
         // Read potentiometer and update only the active channel.
         int potValue = analogRead(PIN_POT);
-        int step = map(potValue, 0, 1023, 0, 53);
-        int discreteValue = step * 5;
+        int step = map(potValue, 0, 1023, 0, 25);
+        int discreteValue = step * 10;
         if (currentChannel == 0)
             guessRed = discreteValue;
         else if (currentChannel == 1)
@@ -230,18 +231,11 @@ bool updateGame3()
             lcd.clear();
             lastMsgIndex = phase;
         }
-        if (phase == 0)
-        {
-            lcd.lcdShow("Congrats you made", "the right color");
-        }
-        else if (phase == 1)
-        {
-            lcd.lcdShow("You have a good", "eye for this i see");
-        }
-    
+
         static bool winningTriggered = false;
         if (elapsed >= 6000 && !winningTriggered)
         {
+            lcd.lcdShow("You have a good", "eyes for this");
             // Play winning sound and display green light.
             rgb.setColor(0, 255, 0);
             buzzer.playSuccessMelody();
@@ -278,7 +272,8 @@ bool updateGame3()
             lastMsgIndex = -1;
             char dbg[50];
             sprintf(dbg, "Color to mach : R:%03d G:%03d B:%03d", targetRed, targetGreen, targetBlue);
-            Serial.println(dbg);        }
+            Serial.println(dbg);
+        }
         break;
     }
     }
