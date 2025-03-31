@@ -8,7 +8,7 @@
 #include "pins.h"
 #include "Score.h"
 
-// Use the global timer defined in main.cpp.
+//global timer defined in main.cpp.
 extern uint32_t globalStartTime;
 extern const uint32_t TOTAL_TIME;
 extern int currentGamePresses;
@@ -35,14 +35,11 @@ bool updateGame3()
     static Game3State gameState = GAME3_INIT;
     static unsigned long stateStart = millis();
 
-    // Target color values (multiples of 10)
     static int targetRed = 0, targetGreen = 0, targetBlue = 0;
-    // User guess values
     static int guessRed = 0, guessGreen = 0, guessBlue = 0;
     // Current active channel: 0 = Red, 1 = Green, 2 = Blue
     static int currentChannel = 0;
 
-    // Elapsed time since current state's start.
     unsigned long elapsed = millis() - stateStart;
 
     switch (gameState)
@@ -160,7 +157,7 @@ bool updateGame3()
 
         // Read potentiometer and update only the active channel.
         int potValue = analogRead(PIN_POT);
-        int step = map(potValue, 0, 1023, 0, 25);
+        int step = map(potValue, 0, 1023, -1, 26);
         int discreteValue = step * 10;
         if (currentChannel == 0)
             guessRed = discreteValue;

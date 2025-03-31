@@ -57,7 +57,7 @@ bool updateGame2()
   static String userInput = "";
   static unsigned long lastKeyPressTime = 0;
   static uint8_t lastButtons = 0;
-  // Record the start time of Game 2 (do not modify after this)
+  // Record the start time of Game 2 
   static uint32_t game2StartTime = 0;
 
   switch (gameState)

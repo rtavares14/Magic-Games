@@ -8,7 +8,6 @@ public:
     Button(uint8_t pin, unsigned long debounceDelay = 50);
     void begin();
     void update();
-    // Returns true when a falling edge (button press) is detected.
     bool isPressed();
     
 private:

@@ -26,7 +26,7 @@ extern int game1FinalScore;
 
 #define FREQ_SEARCH 500
 #define FREQ_CORRECT 1200
-#define THRESHOLD 55
+#define THRESHOLD 65
 #define CONFIRMATION_THRESHOLD 75
 #define PRINT_CHANGE_THRESHOLD 80
 #define CONFIRMATION_DELAY 80
@@ -73,7 +73,7 @@ bool updateGame1()
       buzzer.playTone(400, 200);
       rgb.setColor(255, 0, 0);
     }
-    return true; // End Game1 (failed)
+    return true; // End Game1
   }
 
   switch (gameState)
@@ -108,7 +108,7 @@ bool updateGame1()
       randomSeed(analogRead(A1));
       for (int i = 0; i < 3; i++)
       {
-        combo[i] = random(3, 33) * 100;
+        combo[i] = random(5, 32) * 100;
       }
       Serial.println("------------------------------------");
       Serial.println("---------------Game-1---------------");

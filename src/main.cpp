@@ -20,7 +20,7 @@ RGBLed rgb;
 Buzzer buzzer(PIN_BUZZER);
 Button button(PIN_BUTTON, 50);
 
-// New global variables for button press count.
+// Global variables for button press count.
 int totalButtonPresses = 0;
 int currentGamePresses = 0;
 
@@ -30,7 +30,7 @@ int game3FinalScore = 0;
 int game4FinalScore = 0;
 int totalScore = 0;
 
-// Application States (note: STATE_GAME_OVER removed; TIME_UP is now game over)
+// Application States
 enum AppState
 {
   STATE_INTRO,
@@ -40,9 +40,9 @@ enum AppState
   STATE_LOADING2,
   STATE_GAME3,
   STATE_LOADING3,
-  STATE_GAME4,   // For future games, if any.
-  STATE_TIME_UP, // Time up becomes game over.
-  STATE_GAME_WON // All games finished with time remaining.
+  STATE_GAME4,   
+  STATE_TIME_UP,
+  STATE_GAME_WON
 };
 
 AppState currentState = STATE_INTRO;
@@ -51,12 +51,13 @@ uint32_t stateStartTime = 0;
 // Update the timer display using the current game button press count.
 void updateTimerDisplay()
 {
-  if (currentState == STATE_GAME_WON) return;
+  if (currentState == STATE_GAME_WON)
+    return;
   uint32_t elapsed = millis() - globalStartTime;
   keyLed.displayTime(elapsed, TOTAL_TIME, currentGamePresses);
 }
 
-// Intro State (same as before)
+// Intro State
 void updateIntro()
 {
   uint32_t now = millis();
@@ -108,7 +109,7 @@ void updateIntro()
   }
 }
 
-// Reusable loading function (unchanged except duration remains 3000ms)
+// loading function 
 void updateLoadingGame(const char *loadingMessage, AppState nextState)
 {
   uint32_t now = millis();
@@ -142,7 +143,7 @@ void updateLoadingGame(const char *loadingMessage, AppState nextState)
 // Game state functions
 void game1()
 {
-  bool finished = updateGame2();
+  bool finished = updateGame1();
   if (finished)
   {
     currentState = STATE_LOADING1;
@@ -181,48 +182,55 @@ void updateTimeUp()
 
   if (elapsedState < 3000)
   {
-      msgIndex = 0;
-      if (msgIndex != lastMsgIndex)
-      {
-          lcd.lcdShow("You are forever", "Lost ....");
-          lastMsgIndex = msgIndex;
-      }
+    msgIndex = 0;
+    if (msgIndex != lastMsgIndex)
+    {
+      lcd.lcdShow("You are forever", "Lost ....");
+      lastMsgIndex = msgIndex;
+    }
   }
 }
 
-// New function: Update Game Won state with celebration.
+// Game Won state with celebration.
 void updateGameWon()
 {
+  static bool printedGameWon = false;
   totalScore = game1FinalScore + game2FinalScore + game3FinalScore + game4FinalScore;
   uint32_t now = millis();
   uint32_t elapsedState = now - stateStartTime;
   static int lastMsgIndex = -1;
   int msgIndex = -1;
-  Serial.print("BTN PRESSES: ");
-  Serial.println(totalButtonPresses);
-  Serial.print("POINTS: ");
-  Serial.println(totalScore);
 
-  // Use a 6000ms cycle: first 3000ms for "GAME WON!" then 3000ms for stats.
+  if (!printedGameWon)
+  {
+    Serial.println("------------------------------------");
+    Serial.println("--------------Game-Won--------------");
+    Serial.println("Game Won!");
+    Serial.print("BTN PRESSES: ");
+    Serial.println(totalButtonPresses);
+    Serial.print("POINTS: ");
+    Serial.println(totalScore);
+    printedGameWon = true;
+  }
+
   uint32_t cycleTime = elapsedState % 6000;
-  
-  // Blink the green LED every 500ms.
+
   if ((elapsedState / 500) % 2 == 0)
     rgb.setColor(0, 255, 0);
   else
     rgb.setColor(0, 0, 0);
 
-  // Play the success melody periodically (every 3000ms, within a 50ms window).
   if (elapsedState % 5000 < 50)
     buzzer.playSuccessMelody();
-  
+
   // For the first half of the cycle, show "GAME WON!" message.
-  if (cycleTime < 5000) {
+  if (cycleTime < 5000)
+  {
     lcd.clear();
     lcd.lcdShow("GAME WON!", "Congratulations!");
   }
-  // For the second half, show the stats.
-  else {
+  else
+  {
     String line0 = "BTN PRESSES: " + String(totalButtonPresses);
     String line1 = "POINTS: " + String(totalScore);
     lcd.clear();
@@ -248,9 +256,8 @@ void setup()
 void loop()
 {
   updateTimerDisplay();
-  button.update(); // Called once per loop
+  button.update();
 
-  // Only count button presses when in game states.
   if (currentState == STATE_GAME1 || currentState == STATE_GAME2 || currentState == STATE_GAME3)
   {
     static bool lastButtonState = false;

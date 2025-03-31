@@ -11,7 +11,6 @@ public:
     void clear();
     void setCursor(uint8_t col, uint8_t row);
     void print(const char* message);
-    // A helper method to print two lines of messages with an optional delay.
     void printMessage(const char* line1, const char* line2, unsigned long duration = 2000);
 
     void lcdShow(const char *line1, const char *line2);

@@ -28,12 +28,11 @@ void KeyLed::displayTime(uint32_t elapsed, uint32_t totalDuration, int attemptCo
     int minutes = secondsRemaining / 60;
     int seconds = secondsRemaining % 60;
 
-    // Format time as "mmss" (always 4 characters, e.g., "0512" for 5:12).
+    // Format time as "mmss" always 4 characters
     char timeStr[5];
     sprintf(timeStr, "%02d%02d", minutes, seconds);
 
     // Format the button count as a right-aligned number in a fixed 4-character field.
-    // This means a single-digit count will be printed as "   1", two digits as "  10", etc.
     char countStr[5];
     sprintf(countStr, "%4d", attemptCount);
 

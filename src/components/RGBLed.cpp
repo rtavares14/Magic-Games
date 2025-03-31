@@ -1,5 +1,5 @@
 #include "RGBLed.h"
-#include "pins.h" // Contains PIN_RED, PIN_GREEN, PIN_BLUE
+#include "pins.h"
 
 RGBLed::RGBLed() {}
 
@@ -20,7 +20,7 @@ void RGBLed::setColor(uint8_t r, uint8_t g, uint8_t b)
 void RGBLed::loadingEffect(unsigned long duration)
 {
     unsigned long startTime = millis();
-    // Define a set of colors for a rainbow effect.
+    // set of colors for a rainbow effect.
     const int numColors = 8;
     uint8_t colors[numColors][3] = {
         {255, 0, 0},    // Red
