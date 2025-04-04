@@ -73,24 +73,22 @@ void RGBLed::loadingAnimation(uint32_t elapsed)
         setColor(255, 255, 255);
 }
 
-void RGBLed::getRandomColor(int &red, int &green, int &blue) {
-    const int numColors = 14;
+void RGBLed::getRandomColor(int &red, int &green, int &blue)
+{
+    const int numColors = 9;
     int colors[numColors][3] = {
-        {250,150,   0},   // Orange
-        {150,  0, 150},   // Purple
-        {  10,250,250},    // Cyan
-        {250,250,   0},   // Yellow
-        {250,  0,250},    // Magenta
-        {250,110,180},    // Pink
-        {  10,130,130},    // Teal
-        {140, 70, 20},    // Brown
-        {130,130,   0},   // Olive
-        {250,210,   0},   // Gold
-      
+        {224, 160, 0},  // Orange
+        {160, 0, 160},  // Purple
+        {0, 224, 224},  // Cyan
+        {224, 224, 0},  // Yellow
+        {224, 0, 224},  // Magenta
+        {224, 96, 192}, // Pink
+        {0, 128, 128},  // Teal
+        {128, 128, 0},  // Olive
+        {224, 224, 0}   // Gold
     };
     int index = random(0, numColors);
-    red   = colors[index][0];
+    red = colors[index][0];
     green = colors[index][1];
-    blue  = colors[index][2];
+    blue = colors[index][2];
 }
-

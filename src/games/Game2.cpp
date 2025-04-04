@@ -5,8 +5,10 @@
 #include "Buzzer.h"
 #include "RGBLed.h"
 #include "Button.h"
+#include "Potentiometer.h"
 #include "pins.h"
 #include "Score.h"
+#include "Globals.h"
 
 // Declare global objects from main.cpp.
 extern LCD lcd;
@@ -21,11 +23,39 @@ extern const uint32_t TOTAL_TIME;
 extern int currentGamePresses;
 extern int game2FinalScore;
 
+//-----------------------
+// Constant Definitions
+//-----------------------
+
+// Game parameters
 const int MELODY_LENGTH = 8;
 const int KEY_DEBOUNCE_DELAY = 150;
-const unsigned long BUTTON_DEBOUNCE_DELAY = 50;
+const unsigned long BUTTON_DEBOUNCE_DELAY = 50; // Unused but defined
 
+// Time durations (in milliseconds)
+const unsigned long GAME2_INIT_DURATION = 2000;
+const unsigned long TONE_NOTE_DURATION = 200;
+const unsigned long GAME2_WRONG_DURATION = 1000;
+const unsigned long GAME2_COMPLETE_DURATION = 2000;
+const unsigned long PENALTY_TIME_INCREMENT = 30000;
+
+// Color definitions
+const int COLOR_BLUE_R = 0;
+const int COLOR_BLUE_G = 0;
+const int COLOR_BLUE_B = 255;
+
+const int COLOR_RED_R = 255;
+const int COLOR_RED_G = 0;
+const int COLOR_RED_B = 0;
+
+const int COLOR_GREEN_R = 0;
+const int COLOR_GREEN_G = 255;
+const int COLOR_GREEN_B = 0;
+
+// Melody and Tips
+//-----------------------
 String targetMelody = "48215637";
+
 String tips[MELODY_LENGTH] = {
     "A quartet awaits",
     "Infinite curve",
@@ -36,9 +66,10 @@ String tips[MELODY_LENGTH] = {
     "Triple allure",
     "Lucky final touch"};
 
-char keyDigits[8] = {'1', '2', '3', '4', '5', '6', '7', '8'};
-int noteFrequencies[8] = {261, 293, 329, 349, 392, 440, 493, 523};
+char keyDigits[MELODY_LENGTH] = {'1', '2', '3', '4', '5', '6', '7', '8'};
+int noteFrequencies[MELODY_LENGTH] = {261, 293, 329, 349, 392, 440, 493, 523};
 
+// Game State Definitions
 enum Game2State
 {
   GAME2_INIT,
@@ -57,7 +88,7 @@ bool updateGame2()
   static String userInput = "";
   static unsigned long lastKeyPressTime = 0;
   static uint8_t lastButtons = 0;
-  // Record the start time of Game 2 
+  // Record the start time of Game 2.
   static uint32_t game2StartTime = 0;
 
   switch (gameState)
@@ -67,19 +98,19 @@ bool updateGame2()
     uint32_t t = millis() - stateStart;
     static int lastMsgIndex = -1;
     int msgIndex = -1;
-    if (t < 2000)
+    if (t < GAME2_INIT_DURATION)
     {
       msgIndex = 0;
       if (msgIndex != lastMsgIndex)
       {
         lcd.lcdShow("Welcome: LEVEL 2", "Find the tune!");
-        rgb.setColor(0, 0, 255);
+        rgb.setColor(COLOR_BLUE_R, COLOR_BLUE_G, COLOR_BLUE_B);
         lastMsgIndex = msgIndex;
       }
     }
     else
     {
-      // After 2 seconds, display the first tip.
+      // After init duration, display the first tip.
       char tipHeader[17];
       sprintf(tipHeader, "Tip for note %d", 1);
       lcd.lcdShow(tipHeader, tips[0].substring(0, 16).c_str());
@@ -104,7 +135,7 @@ bool updateGame2()
     uint8_t keys = keyLed.readButtons();
     int pressedCount = 0;
     int pressedIndex = -1;
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < MELODY_LENGTH; i++)
     {
       bool pressed = (keys & (1 << i)) != 0;
       if (pressed)
@@ -125,7 +156,7 @@ bool updateGame2()
         ((lastButtons & (1 << pressedIndex)) == 0))
     {
       userInput += keyDigits[pressedIndex];
-      buzzer.playTone(noteFrequencies[pressedIndex], 200);
+      buzzer.playTone(noteFrequencies[pressedIndex], TONE_NOTE_DURATION);
       lastKeyPressTime = millis();
       char tipHeader[17];
       sprintf(tipHeader, "Tip for note %d", (int)userInput.length() + 1);
@@ -189,7 +220,7 @@ bool updateGame2()
         game2FinalScore = game2Score.points;
         Serial.print("Game 2 Score: ");
         Serial.println(game2Score.points);
-        rgb.setColor(0, 255, 0);
+        rgb.setColor(COLOR_GREEN_R, COLOR_GREEN_G, COLOR_GREEN_B);
         buzzer.playSuccessMelody();
         gameState = GAME2_COMPLETE;
         stateStart = millis();
@@ -197,15 +228,15 @@ bool updateGame2()
       else
       {
         attemptCount++;
-        penaltyTime += 30000;
-        globalStartTime -= 30000;
+        penaltyTime += PENALTY_TIME_INCREMENT;
+        globalStartTime -= PENALTY_TIME_INCREMENT;
         Serial.print("Try number ");
         Serial.print(attemptCount);
         Serial.print(": ");
         Serial.print(correctCount);
         Serial.println(" correct");
         lcd.lcdShow("Wrong Tune!", "Try again!");
-        rgb.setColor(255, 0, 0);
+        rgb.setColor(COLOR_RED_R, COLOR_RED_G, COLOR_RED_B);
         buzzer.playErrorTone();
         gameState = GAME2_WRONG;
         stateStart = millis();
@@ -215,9 +246,9 @@ bool updateGame2()
   }
   case GAME2_WRONG:
   {
-    if (millis() - stateStart >= 1000)
+    if (millis() - stateStart >= GAME2_WRONG_DURATION)
     {
-      rgb.setColor(0, 0, 255);
+      rgb.setColor(COLOR_BLUE_R, COLOR_BLUE_G, COLOR_BLUE_B);
       userInput = "";
       lcd.lcdShow("Tip for note 1", tips[0].substring(0, 16).c_str());
       gameState = GAME2_PLAY;
@@ -227,7 +258,7 @@ bool updateGame2()
   }
   case GAME2_COMPLETE:
   {
-    if (millis() - stateStart > 2000)
+    if (millis() - stateStart > GAME2_COMPLETE_DURATION)
       return true;
     break;
   }

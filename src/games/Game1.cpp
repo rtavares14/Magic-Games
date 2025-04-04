@@ -8,30 +8,53 @@
 #include "Potentiometer.h"
 #include "pins.h"
 #include "Score.h"
+#include "Globals.h"
 
-// Declare global objects from main.cpp.
-extern LCD lcd;
-extern KeyLed keyLed;
-extern RGBLed rgb;
-extern Buzzer buzzer;
-extern Button button;
+// Constant Definitions
 
-// Use the global timer defined in main.cpp.
-extern uint32_t globalStartTime;
-extern const uint32_t TOTAL_TIME;
+// Number of levels in the game
+const int NUM_LEVELS = 3;
 
-// Declare the global game press counter.
-extern int currentGamePresses;
-extern int game1FinalScore;
+// Tone frequency and threshold constants
+const int TUNE_SEARCH = 500;                    // Frequency for distant tone feedback
+const int TUNE_CORRECT = 1200;                  // Frequency for correct guess tone
+const int THRESHOLD_LEVEL1 = 65;                // Base threshold for level 1
+const int CONFIRMATION_THRESHOLD = 75;          // Threshold to cancel confirmation
+const int PRINT_CHANGE_THRESHOLD = 80;          // Minimum change needed to update printed value
+const unsigned long CONFIRMATION_DELAY_MS = 80; // Delay required for confirmation (ms)
 
-#define FREQ_SEARCH 500
-#define FREQ_CORRECT 1200
-#define THRESHOLD 65
-#define CONFIRMATION_THRESHOLD 75
-#define PRINT_CHANGE_THRESHOLD 80
-#define CONFIRMATION_DELAY 80
+// Tone for time-up event
+const int TONE_TIME_UP_FREQUENCY = 400;          // Frequency when time is up
+const unsigned long TONE_TIME_UP_DURATION = 200; // Duration when time is up (ms)
 
-// Define the internal states for Game1.
+// Message timing constants (in milliseconds)
+const unsigned long MSG_STAGE0 = 2000;
+const unsigned long MSG_STAGE1 = 5000;
+const unsigned long MSG_STAGE2 = 8000;
+const unsigned long MSG_STAGE3 = 11000;
+const unsigned long MSG_STAGE4 = 14000;
+
+// Random combo generation constants
+const int RANDOM_MIN = 5;
+const int RANDOM_MAX = 32;
+const int RANDOM_MULTIPLIER = 100;
+
+// Level-specific adjustments for thresholds and tones
+const int LEVEL2_THRESHOLD_OFFSET = 10;
+const int LEVEL3_THRESHOLD_OFFSET = 20;
+const int TUNE_LEVEL2 = 1500;
+const int TUNE_LEVEL3 = 1800;
+
+// Tone duration and interval constants (in milliseconds)
+const unsigned long TONE_DURATION_SHORT = 50;
+const unsigned long TONE_DURATION_LONG = 100;
+const unsigned long HOVER_BEEP_INTERVAL = 500;
+
+// Game completion display time
+const unsigned long GAME_COMPLETE_DISPLAY_TIME = 2000;
+
+// Game State Definitions
+
 enum Game1State
 {
   GAME1_INIT,
@@ -51,14 +74,14 @@ bool updateGame1()
   static Game1State gameState = GAME1_INIT;
   static unsigned long stateStart = millis();
   static int currentStep = 0;
-  static int combo[3];
+  static int combo[NUM_LEVELS];
   static bool comboInitialized = false;
   static int lastPrintedValue = -100;
   static WaitState waitState = WAIT_FOR_CORRECT_VALUE;
   static unsigned long confirmStartTime = 0;
   static unsigned long lastHoverBeepTime = 0;
   static bool safeOpened = false;
-  // New variable to record the start time of Game1.
+  // Record the start time of Game1.
   static uint32_t game1StartTime = 0;
 
   // Check global timer expiration.
@@ -70,7 +93,7 @@ bool updateGame1()
       gameState = GAME1_TIME_UP;
       stateStart = millis();
       lcd.lcdShow("Time is up!", "Vault locked!");
-      buzzer.playTone(400, 200);
+      buzzer.playTone(TONE_TIME_UP_FREQUENCY, TONE_TIME_UP_DURATION);
       rgb.setColor(255, 0, 0);
     }
     return true; // End Game1
@@ -83,32 +106,32 @@ bool updateGame1()
     uint32_t t = millis() - stateStart;
     static int lastMsgIndex = -1;
     int msgIndex = -1;
-    if (t < 2000)
+    if (t < MSG_STAGE0)
     {
       msgIndex = 0;
     }
-    else if (t < 5000)
+    else if (t < MSG_STAGE1)
     {
       msgIndex = 1;
     }
-    else if (t < 8000)
+    else if (t < MSG_STAGE2)
     {
       msgIndex = 2;
     }
-    else if (t < 11000)
+    else if (t < MSG_STAGE3)
     {
       msgIndex = 3;
     }
-    else if (t < 14000)
+    else if (t < MSG_STAGE4)
     {
       msgIndex = 4;
     }
     else
     {
       randomSeed(analogRead(A1));
-      for (int i = 0; i < 3; i++)
+      for (int i = 0; i < NUM_LEVELS; i++)
       {
-        combo[i] = random(5, 32) * 100;
+        combo[i] = random(RANDOM_MIN, RANDOM_MAX) * RANDOM_MULTIPLIER;
       }
       Serial.println("------------------------------------");
       Serial.println("---------------Game-1---------------");
@@ -134,16 +157,14 @@ bool updateGame1()
     if (msgIndex != lastMsgIndex)
     {
       lcd.lcdShow(
-          (msgIndex == 0) ? "Welcome: LEVEL 1" :
-          (msgIndex == 1) ? "Escape fast or" :
-          (msgIndex == 2) ? "Listen carefully" :
-          (msgIndex == 3) ? "When found, you" :
-                            "Dont forget to",
-          (msgIndex == 0) ? "Get Ready!" :
-          (msgIndex == 1) ? "rocks hit you" :
-          (msgIndex == 2) ? "find the beep" :
-          (msgIndex == 3) ? "are close!" :
-                            "press the button");
+          (msgIndex == 0) ? "Welcome: LEVEL 1" : (msgIndex == 1) ? "Escape fast or"
+                                             : (msgIndex == 2)   ? "Listen carefully"
+                                             : (msgIndex == 3)   ? "When found, you"
+                                                                 : "Dont forget to",
+          (msgIndex == 0) ? "Get Ready!" : (msgIndex == 1) ? "rocks hit you"
+                                       : (msgIndex == 2)   ? "find the beep"
+                                       : (msgIndex == 3)   ? "are close!"
+                                                           : "press the button");
       lastMsgIndex = msgIndex;
     }
     break;
@@ -160,26 +181,26 @@ bool updateGame1()
     if (abs(currentValue - lastPrintedValue) > PRINT_CHANGE_THRESHOLD)
       lastPrintedValue = currentValue;
 
-    // Set thresholds based on current step.
+    // Set thresholds and tone frequencies based on current step.
     int currentLevel = currentStep + 1;
     int levelThreshold, levelTone;
     switch (currentLevel)
     {
     case 1:
-      levelThreshold = THRESHOLD;
-      levelTone = FREQ_CORRECT;
+      levelThreshold = THRESHOLD_LEVEL1;
+      levelTone = TUNE_CORRECT;
       break;
     case 2:
-      levelThreshold = THRESHOLD - 10;
-      levelTone = 1500;
+      levelThreshold = THRESHOLD_LEVEL1 - LEVEL2_THRESHOLD_OFFSET;
+      levelTone = TUNE_LEVEL2;
       break;
-    case 3:
-      levelThreshold = THRESHOLD - 20;
-      levelTone = 1800;
+    case NUM_LEVELS:
+      levelThreshold = THRESHOLD_LEVEL1 - LEVEL3_THRESHOLD_OFFSET;
+      levelTone = TUNE_LEVEL3;
       break;
     default:
-      levelThreshold = THRESHOLD;
-      levelTone = FREQ_CORRECT;
+      levelThreshold = THRESHOLD_LEVEL1;
+      levelTone = TUNE_CORRECT;
       break;
     }
 
@@ -189,31 +210,31 @@ bool updateGame1()
     // Tone generation based on distance.
     if (distance < levelThreshold)
     {
-      buzzer.playTone(levelTone, 50);
+      buzzer.playTone(levelTone, TONE_DURATION_SHORT);
     }
     else if (distance < levelThreshold + 5)
     {
-      if (millis() - lastHoverBeepTime > 500)
+      if (millis() - lastHoverBeepTime > HOVER_BEEP_INTERVAL)
       {
-        buzzer.playTone(1000, 100);
+        buzzer.playTone(1000, TONE_DURATION_LONG);
         lastHoverBeepTime = millis();
       }
       else
       {
-        int toneFreq = map(distance, 0, 3600, levelTone, FREQ_SEARCH);
-        buzzer.playTone(toneFreq, 50);
+        int toneFreq = map(distance, 0, 3600, levelTone, TUNE_SEARCH);
+        buzzer.playTone(toneFreq, TONE_DURATION_SHORT);
       }
     }
     else
     {
-      int toneFreq = map(distance, 0, 3600, levelTone, FREQ_SEARCH);
-      buzzer.playTone(toneFreq, 50);
+      int toneFreq = map(distance, 0, 3600, levelTone, TUNE_SEARCH);
+      buzzer.playTone(toneFreq, TONE_DURATION_SHORT);
     }
 
     // LED feedback.
     if (distance < levelThreshold)
     {
-      if (currentLevel == 3)
+      if (currentLevel == NUM_LEVELS)
         rgb.setColor(255, 0, 0);
       else
         rgb.setColor(255, 50, 0);
@@ -242,16 +263,16 @@ bool updateGame1()
     {
       if (distance >= CONFIRMATION_THRESHOLD)
         waitState = WAIT_FOR_CORRECT_VALUE;
-      else if (millis() - confirmStartTime >= CONFIRMATION_DELAY)
+      else if (millis() - confirmStartTime >= CONFIRMATION_DELAY_MS)
       {
         currentStep++;
         Serial.print("Step ");
         Serial.print(currentStep);
         Serial.println(" confirmed!");
-        if (currentStep < 3)
+        if (currentStep < NUM_LEVELS)
         {
           char stepMsg[17];
-          sprintf(stepMsg, "STEP %d OF 3 DONE", currentStep);
+          sprintf(stepMsg, "STEP %d OF %d DONE", currentStep, NUM_LEVELS);
           lcd.lcdShow(stepMsg, "KEEP GOING");
         }
         else
@@ -279,7 +300,7 @@ bool updateGame1()
   }
   case GAME1_COMPLETE:
   {
-    if (millis() - stateStart > 2000)
+    if (millis() - stateStart > GAME_COMPLETE_DISPLAY_TIME)
       return true;
     break;
   }

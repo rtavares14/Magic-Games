@@ -8,6 +8,7 @@
 #include "KeyLed.h"
 #include "Buzzer.h"
 #include "Button.h"
+#include "Globals.h"
 
 // Total time: 10 minutes
 extern const uint32_t TOTAL_TIME = 600000UL;
