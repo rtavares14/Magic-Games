@@ -13,7 +13,7 @@ public:
     // Optional blink method.
     void blink(uint8_t r, uint8_t g, uint8_t b, int delayTime);
     void loadingAnimation(uint32_t elapsed);
-    void getRandomColor(int &red, int &green, int &blue);
+    void getRandomColor(int type, int &red, int &green, int &blue);
 };
 
 #endif

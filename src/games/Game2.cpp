@@ -199,7 +199,7 @@ bool updateGame2()
         Serial.print("Try number ");
         Serial.print(attemptCount + 1);
         Serial.println(": melody correct");
-        keyLed.printTimeUsed(game2StartTime);
+        //keyLed.printTimeUsed(game2StartTime);
         Serial.print("Button presses: ");
         Serial.println(currentGamePresses);
 

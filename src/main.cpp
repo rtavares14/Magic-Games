@@ -144,7 +144,7 @@ void updateLoadingGame(const char *loadingMessage, AppState nextState)
 // Game state functions
 void game1()
 {
-  bool finished = updateGame1();
+  bool finished = updateGame3();
   if (finished)
   {
     currentState = STATE_LOADING1;
