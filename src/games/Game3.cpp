@@ -112,6 +112,7 @@ bool updateGame3()
             {
                 char dbg[50];
                 Serial.println("------------------------------------");
+                Serial.println("---------------Game-3---------------");
                 Serial.print("Generating color for Level ");
                 Serial.println(currentLevel);
                 sprintf(dbg, "Color to match: R:%03d G:%03d B:%03d", targetRed, targetGreen, targetBlue);
@@ -302,6 +303,8 @@ bool updateGame3()
                     Serial.println("Final level complete. Game over!");
                     lcd.lcdShow("Final Level", "Complete!");
                     rgb.setColor(0, 224, 0); // Green LED for success.
+                    Serial.print("Button presses: ");
+                    Serial.println(currentGamePresses);
                     buzzer.playSuccessMelody();
                     keyLed.printTimeUsed(game3StartTime);
                     unsigned long timeTaken = millis() - game3StartTime;
