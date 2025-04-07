@@ -12,7 +12,7 @@ public:
     void playSuccessMelody();
     void playGameOverMelody();
     void playWinningMelody();
-    
+
 private:
     uint8_t buzzerPin;
 };

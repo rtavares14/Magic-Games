@@ -3,6 +3,7 @@
 #include "Game1.h"
 #include "Game2.h"
 #include "Game3.h"
+#include "Game4.h"
 #include "RGBLed.h"
 #include "LCD.h"
 #include "KeyLed.h"
@@ -10,30 +11,47 @@
 #include "Button.h"
 #include "Globals.h"
 
-// Total time: 10 minutes
+// Global configuration constants
+static const uint8_t LCD_I2C_ADDRESS = 0x27;
+static const int LCD_COLUMNS = 16;
+static const int LCD_ROWS = 2;
+static const unsigned long BUTTON_DEBOUNCE_MS = 50;
+static const unsigned long INTRO_MESSAGE_INTERVAL_MS = 2000;
+static const unsigned long LOADING_SCREEN_DURATION_MS = 3000;
+static const unsigned long TIME_UP_WARNING_MS = 1000;
+static const unsigned long TIME_UP_DISPLAY_DURATION_MS = 3000;
+static const unsigned long CELEBRATION_CYCLE_MS = 6000;
+static const unsigned long CELEBRATION_BLINK_INTERVAL_MS = 500;
+static const unsigned long CELEBRATION_MELODY_INTERVAL_MS = 5000;
+static const unsigned long CELEBRATION_MELODY_WINDOW_MS = 50;
+static const int LED_RED_R = 255;
+static const int LED_RED_G = 0;
+static const int LED_RED_B = 0;
+
+// Total time for all games: 10 minutes
 extern const uint32_t TOTAL_TIME = 600000UL;
 uint32_t globalStartTime;
 
-// Global shared objects.
-LCD lcd(0x27, 16, 2);
+// Global shared objects
+LCD lcd(LCD_I2C_ADDRESS, LCD_COLUMNS, LCD_ROWS);
 KeyLed keyLed(STB_PIN, CLK_PIN, DIO_PIN);
 RGBLed rgb;
 Buzzer buzzer(PIN_BUZZER);
-Button button(PIN_BUTTON, 50);
+Button button(PIN_BUTTON, BUTTON_DEBOUNCE_MS);
 
-// Global variables for button press count.
+// Global variables for button press counts
 int totalButtonPresses = 0;
 int currentGamePresses = 0;
 
+// Scores for each game and total score
 int game1FinalScore = 0;
 int game2FinalScore = 0;
 int game3FinalScore = 0;
 int game4FinalScore = 0;
 int totalScore = 0;
 
-// Application States
-enum AppState
-{
+// Application state definitions
+enum AppState {
   STATE_INTRO,
   STATE_GAME1,
   STATE_LOADING1,
@@ -41,7 +59,7 @@ enum AppState
   STATE_LOADING2,
   STATE_GAME3,
   STATE_LOADING3,
-  STATE_GAME4,   
+  STATE_GAME4,
   STATE_TIME_UP,
   STATE_GAME_WON
 };
@@ -49,37 +67,30 @@ enum AppState
 AppState currentState = STATE_INTRO;
 uint32_t stateStartTime = 0;
 
-// Update the timer display using the current game button press count.
-void updateTimerDisplay()
-{
-  if (currentState == STATE_GAME_WON)
+// Update the 7-seg display with elapsed time and button presses
+void updateTimerDisplay() {
+  if (currentState == STATE_GAME_WON) {
     return;
+  }
   uint32_t elapsed = millis() - globalStartTime;
   keyLed.displayTime(elapsed, TOTAL_TIME, currentGamePresses);
 }
 
-// Intro State
-void updateIntro()
-{
+// Intro state: show introductory messages then transition to Game1
+void updateIntro() {
   uint32_t now = millis();
   uint32_t elapsedState = now - stateStartTime;
   static int lastMessageIndex = -1;
   int messageIndex = -1;
 
-  if (elapsedState < 2000)
-  {
+  if (elapsedState < INTRO_MESSAGE_INTERVAL_MS) {
     messageIndex = 0;
-  }
-  else if (elapsedState < 4000)
-  {
+  } else if (elapsedState < 2 * INTRO_MESSAGE_INTERVAL_MS) {
     messageIndex = 1;
-  }
-  else if (elapsedState < 6000)
-  {
+  } else if (elapsedState < 3 * INTRO_MESSAGE_INTERVAL_MS) {
     messageIndex = 2;
-  }
-  else
-  {
+  } else {
+    // After intro messages, start Game1
     currentGamePresses = 0;
     currentState = STATE_GAME1;
     stateStartTime = now;
@@ -87,43 +98,39 @@ void updateIntro()
     return;
   }
 
-  if (messageIndex != lastMessageIndex)
-  {
+  if (messageIndex != lastMessageIndex) {
     lcd.clear();
-    switch (messageIndex)
-    {
-    case 0:
-      lcd.lcdShow("New Adventure", "has begun!");
-      break;
-    case 1:
-      lcd.lcdShow("Have Fun", "Good Luck!");
-      Serial.println("------------------------------------");
-      Serial.println("-------------Main-Loop--------------");
-      Serial.println("The games will begin soon.");
-      Serial.println("Timer: 10 minutes");
-      break;
-    case 2:
-      lcd.lcdShow("Starting Games", "with 10m timer...");
-      break;
+    switch (messageIndex) {
+      case 0:
+        lcd.lcdShow("New Adventure", "has begun!");
+        break;
+      case 1:
+        lcd.lcdShow("Have Fun", "Good Luck!");
+        // Print introduction info to Serial once
+        Serial.println("------------------------------------");
+        Serial.println("-------------Main-Loop--------------");
+        Serial.println("The games will begin soon.");
+        Serial.println("Timer: 10 minutes");
+        break;
+      case 2:
+        lcd.lcdShow("Starting Games", "with 10m timer...");
+        break;
     }
     lastMessageIndex = messageIndex;
   }
 }
 
-// loading function 
-void updateLoadingGame(const char *loadingMessage, AppState nextState)
-{
+// Loading state: brief loading screen between games
+void updateLoadingGame(const char *loadingMessage, AppState nextState) {
   uint32_t now = millis();
   uint32_t elapsedState = now - stateStartTime;
   static int lastMsgIndex = -1;
   int messageIndex = -1;
 
-  if (elapsedState < 3000)
-  {
+  if (elapsedState < LOADING_SCREEN_DURATION_MS) {
     messageIndex = 0;
-  }
-  else
-  {
+  } else {
+    // After loading duration, proceed to next game
     currentGamePresses = 0;
     currentState = nextState;
     stateStartTime = now;
@@ -131,70 +138,73 @@ void updateLoadingGame(const char *loadingMessage, AppState nextState)
     return;
   }
 
-  if (messageIndex != lastMsgIndex)
-  {
+  if (messageIndex != lastMsgIndex) {
     lcd.clear();
     lcd.lcdShow(loadingMessage, "Loading...");
     lastMsgIndex = messageIndex;
   }
-
   rgb.loadingAnimation(elapsedState);
 }
 
-// Game state functions
-void game1()
-{
-  bool finished = updateGame3();
-  if (finished)
-  {
+// Game state handlers calling each game's update function
+void game1() {
+  bool finished = updateGame1();
+  if (finished) {
     currentState = STATE_LOADING1;
     stateStartTime = millis();
   }
 }
 
-void game2()
-{
+void game2() {
   bool finished = updateGame2();
-  if (finished)
-  {
+  if (finished) {
     currentState = STATE_LOADING2;
     stateStartTime = millis();
   }
 }
 
-void game3()
-{
+void game3() {
   bool finished = updateGame3();
-  if (finished)
-  {
-    currentState = STATE_GAME_WON;
+  if (finished) {
+    currentState = STATE_LOADING3;
     stateStartTime = millis();
   }
 }
 
-void updateTimeUp()
-{
+void game4() {
+  bool finished = updateGame4();
+  if (finished) {
+    // Determine if the finish was due to time up or game completion
+    uint32_t elapsedGlobal = millis() - globalStartTime;
+    if (elapsedGlobal >= TOTAL_TIME) {
+      currentState = STATE_TIME_UP;
+    } else {
+      currentState = STATE_GAME_WON;
+    }
+    stateStartTime = millis();
+  }
+}
+
+// Handle global timeout (no games completed in time)
+void updateTimeUp() {
   uint32_t now = millis();
   uint32_t elapsedState = now - stateStartTime;
   static int lastMsgIndex = -1;
   int msgIndex = -1;
-  rgb.setColor(255, 0, 0);
+  rgb.setColor(LED_RED_R, LED_RED_G, LED_RED_B);
   buzzer.playGameOverMelody();
 
-  if (elapsedState < 3000)
-  {
+  if (elapsedState < TIME_UP_DISPLAY_DURATION_MS) {
     msgIndex = 0;
-    if (msgIndex != lastMsgIndex)
-    {
-      lcd.lcdShow("You are forever", "Lost ....");
+    if (msgIndex != lastMsgIndex) {
+      lcd.lcdShow("You are forever", "Lost...");
       lastMsgIndex = msgIndex;
     }
   }
 }
 
-// Game Won state with celebration.
-void updateGameWon()
-{
+// Game Won state: celebration display and stats
+void updateGameWon() {
   static bool printedGameWon = false;
   totalScore = game1FinalScore + game2FinalScore + game3FinalScore + game4FinalScore;
   uint32_t now = millis();
@@ -202,8 +212,7 @@ void updateGameWon()
   static int lastMsgIndex = -1;
   int msgIndex = -1;
 
-  if (!printedGameWon)
-  {
+  if (!printedGameWon) {
     Serial.println("------------------------------------");
     Serial.println("--------------Game-Won--------------");
     Serial.println("Game Won!");
@@ -214,34 +223,37 @@ void updateGameWon()
     printedGameWon = true;
   }
 
-  uint32_t cycleTime = elapsedState % 6000;
-
-  if ((elapsedState / 500) % 2 == 0)
+  uint32_t cycleTime = elapsedState % CELEBRATION_CYCLE_MS;
+  // Blink RGB LED green on and off
+  if ((elapsedState / CELEBRATION_BLINK_INTERVAL_MS) % 2 == 0) {
     rgb.setColor(0, 255, 0);
-  else
+  } else {
     rgb.setColor(0, 0, 0);
-
-  if (elapsedState % 5000 < 50)
-    buzzer.playSuccessMelody();
-
-  // For the first half of the cycle, show "GAME WON!" message.
-  if (cycleTime < 5000)
-  {
-    lcd.clear();
-    lcd.lcdShow("GAME WON!", "Congratulations!");
   }
-  else
-  {
-    String line0 = "BTN PRESSES: " + String(totalButtonPresses);
-    String line1 = "POINTS: " + String(totalScore);
-    lcd.clear();
-    lcd.lcdShow(line0.c_str(), line1.c_str());
+  // Play success melody at the start of each interval
+  if (elapsedState % CELEBRATION_MELODY_INTERVAL_MS < CELEBRATION_MELODY_WINDOW_MS) {
+    buzzer.playSuccessMelody();
+  }
+
+  // Alternate between "GAME WON!" message and final stats
+  if (cycleTime < 5000) {
+    if (msgIndex != lastMsgIndex) {
+      lcd.clear();
+      lcd.lcdShow("GAME WON!", "Congratulations!");
+      lastMsgIndex = msgIndex;
+    }
+  } else {
+    if (msgIndex != lastMsgIndex) {
+      String line0 = "BTN PRESSES: " + String(totalButtonPresses);
+      String line1 = "POINTS: " + String(totalScore);
+      lcd.clear();
+      lcd.lcdShow(line0.c_str(), line1.c_str());
+      lastMsgIndex = msgIndex;
+    }
   }
 }
 
-// Setup & Main Loop
-void setup()
-{
+void setup() {
   Serial.begin(9600);
   lcd.begin();
   keyLed.begin();
@@ -254,60 +266,62 @@ void setup()
   stateStartTime = millis();
 }
 
-void loop()
-{
+void loop() {
   updateTimerDisplay();
   button.update();
 
-  if (currentState == STATE_GAME1 || currentState == STATE_GAME2 || currentState == STATE_GAME3)
-  {
+  // Count button presses during games
+  if (currentState == STATE_GAME1 || currentState == STATE_GAME2 ||
+      currentState == STATE_GAME3 || currentState == STATE_GAME4) {
     static bool lastButtonState = false;
     bool currentButtonState = button.isPressed();
-    if (currentButtonState && !lastButtonState)
-    {
+    if (currentButtonState && !lastButtonState) {
       totalButtonPresses++;
       currentGamePresses++;
     }
     lastButtonState = currentButtonState;
   }
 
-  // Check global time remaining. If less than or equal to 1 second, transition to TIME_UP state.
+  // Check if time is nearly up and trigger time-up state if needed
   uint32_t elapsedGlobal = millis() - globalStartTime;
-  if (TOTAL_TIME - elapsedGlobal <= 1000 && currentState != STATE_TIME_UP && currentState != STATE_GAME_WON)
-  {
+  if (TOTAL_TIME - elapsedGlobal <= TIME_UP_WARNING_MS &&
+      currentState != STATE_TIME_UP && currentState != STATE_GAME_WON) {
     currentState = STATE_TIME_UP;
     stateStartTime = millis();
   }
 
-  switch (currentState)
-  {
-  case STATE_INTRO:
-    updateIntro();
-    break;
-  case STATE_GAME1:
-    game1();
-    break;
-  case STATE_LOADING1:
-    updateLoadingGame("Game 2 Loading", STATE_GAME2);
-    break;
-  case STATE_GAME2:
-    game2();
-    break;
-  case STATE_LOADING2:
-    updateLoadingGame("Game 3 Loading", STATE_GAME3);
-    break;
-  case STATE_GAME3:
-    game3();
-    break;
-  case STATE_LOADING3:
-    updateLoadingGame("Game 4 Loading", STATE_GAME4);
-    break;
-  case STATE_TIME_UP:
-    updateTimeUp();
-    break;
-  case STATE_GAME_WON:
-    updateGameWon();
-    break;
+  // State machine: call update function for the current state
+  switch (currentState) {
+    case STATE_INTRO:
+      updateIntro();
+      break;
+    case STATE_GAME1:
+      game1();
+      break;
+    case STATE_LOADING1:
+      updateLoadingGame("Game 2 Loading", STATE_GAME2);
+      break;
+    case STATE_GAME2:
+      game2();
+      break;
+    case STATE_LOADING2:
+      updateLoadingGame("Game 3 Loading", STATE_GAME3);
+      break;
+    case STATE_GAME3:
+      game3();
+      break;
+    case STATE_LOADING3:
+      updateLoadingGame("Game 4 Loading", STATE_GAME4);
+      break;
+    case STATE_GAME4:
+      game4();
+      break;
+    case STATE_TIME_UP:
+      updateTimeUp();
+      break;
+    case STATE_GAME_WON:
+      updateGameWon();
+      break;
   }
   delay(10);
 }

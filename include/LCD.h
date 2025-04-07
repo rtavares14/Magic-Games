@@ -16,6 +16,7 @@ public:
     void lcdShow(const char *line1, const char *line2);
 
     void printMessageNoTime(const char *line1, const char *line2);
+    void updateLCD(const char* line1, const char* line2);
 
 private:
     LiquidCrystal_I2C lcd;

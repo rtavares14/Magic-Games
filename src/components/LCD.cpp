@@ -40,3 +40,16 @@ void LCD::lcdShow(const char *line1, const char *line2) {
     lcd.setCursor(0, 1);
     lcd.print(line2);
 }
+
+// Helper function to update the LCD only when content changes.
+void LCD::updateLCD(const char* line1, const char* line2) {
+    static char lastLine1[17] = "";
+    static char lastLine2[17] = "";
+    if (strcmp(line1, lastLine1) != 0 || strcmp(line2, lastLine2) != 0) {
+      lcdShow(line1, line2);
+      strncpy(lastLine1, line1, 16);
+      lastLine1[16] = '\0';
+      strncpy(lastLine2, line2, 16);
+      lastLine2[16] = '\0';
+    }
+  }
