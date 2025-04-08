@@ -167,7 +167,7 @@ void game1()
   bool finished = updateGame1();
   if (finished)
   {
-    currentState = STATE_GAME_WON;
+    currentState = STATE_LOADING1;
     stateStartTime = millis();
   }
 }
@@ -233,7 +233,7 @@ void updateTimeUp()
 
 // Game Won state: celebration display and stats
 void updateGameWon() {
-  buzzer.playGameWonMelody();
+  buzzer.playWinningMelody();
   static bool printedGameWon = false;
   static int lastMessageIndex = -1;
 
