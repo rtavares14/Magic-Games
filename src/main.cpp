@@ -20,7 +20,7 @@ static const unsigned long INTRO_MESSAGE_INTERVAL_MS = 2000;
 static const unsigned long LOADING_SCREEN_DURATION_MS = 3000;
 static const unsigned long TIME_UP_WARNING_MS = 1000;
 static const unsigned long TIME_UP_DISPLAY_DURATION_MS = 3000;
-static const unsigned long CELEBRATION_CYCLE_MS = 6000;
+static const unsigned long CELEBRATION_CYCLE_MS = 10000;
 static const unsigned long CELEBRATION_BLINK_INTERVAL_MS = 500;
 static const unsigned long CELEBRATION_MELODY_INTERVAL_MS = 5000;
 static const unsigned long CELEBRATION_MELODY_WINDOW_MS = 50;
@@ -167,7 +167,7 @@ void game1()
   bool finished = updateGame1();
   if (finished)
   {
-    currentState = STATE_LOADING1;
+    currentState = STATE_GAME_WON;
     stateStartTime = millis();
   }
 }
@@ -232,15 +232,16 @@ void updateTimeUp()
 }
 
 // Game Won state: celebration display and stats
-void updateGameWon()
-{
+void updateGameWon() {
+  buzzer.playGameWonMelody();
   static bool printedGameWon = false;
-  // On first entry, clear the LCD and print serial info.
-  // Calculate total score.
+  static int lastMessageIndex = -1;
+
+  // Calculate total score from all games.
   totalScore = game1FinalScore + game2FinalScore + game3FinalScore + game4FinalScore;
-  
-  if (!printedGameWon)
-  {
+
+  // On first entry, clear the LCD and print serial info.
+  if (!printedGameWon) {
     lcd.clear();
     printedGameWon = true;
     Serial.println("------------------------------------");
@@ -254,36 +255,30 @@ void updateGameWon()
 
   uint32_t now = millis();
   uint32_t elapsedState = now - stateStartTime;
-  uint32_t cycleTime = elapsedState % CELEBRATION_CYCLE_MS;
+  int messageIndex = -1;
 
-  // Blink RGB LED green on and off.
-  if ((elapsedState / CELEBRATION_BLINK_INTERVAL_MS) % 2 == 0)
-  {
-    rgb.setColor(0, 255, 0);
+  // Use a 10-second cycle:
+  if (elapsedState % 10000 < 5000) {
+    messageIndex = 0;
   }
-  else
-  {
-    rgb.setColor(0, 0, 0);
+  else {
+    messageIndex = 1;
   }
 
-  // Play success melody at the start of each interval.
-  if (elapsedState % CELEBRATION_MELODY_INTERVAL_MS < CELEBRATION_MELODY_WINDOW_MS)
-  {
-    buzzer.playSuccessMelody();
-  }
-
-  // Alternate between congratulatory message and final stats.
-  if (cycleTime < 5000)
-  {
-    lcd.lcdShow("GAME WON!", "Congratulations!");
-  }
-  else
-  {
-    char line0[17];
-    char line1[17];
-    snprintf(line0, 17, "BTN:%d", totalButtonPresses);
-    snprintf(line1, 17, "PTS:%d", totalScore);
-    lcd.lcdShow(line0, line1);
+  // Only update the LCD output if the message index has changed.
+  if (messageIndex != lastMessageIndex) {
+    lcd.clear();
+    if (messageIndex == 0) {
+      lcd.lcdShow("GAME WON!", "Congratulations!");
+    }
+    else {
+      char line0[17];
+      char line1[17];
+      snprintf(line0, sizeof(line0), "BTN:%d", totalButtonPresses);
+      snprintf(line1, sizeof(line1), "PTS:%d", totalScore);
+      lcd.lcdShow(line0, line1);
+    }
+    lastMessageIndex = messageIndex;
   }
 }
 
