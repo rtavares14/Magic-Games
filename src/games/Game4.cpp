@@ -27,9 +27,6 @@ static const TriviaQuestion questions[] = {
     {"Largest planet?",
      {"Earth", "Mars", "Jupiter", "Saturn", "Neptune"},
      2},
-    {"Hamlet Author?",
-     {"Dickens", "Shakespeare", "Twain", "Tolstoy", "Austen"},
-     1},
     {"Water Boils at?",
      {"90°C", "100°C", "110°C", "120°C", "80°C"},
      1},
@@ -152,7 +149,7 @@ bool updateGame4()
       }
       char optionLine[17];
       snprintf(optionLine, 17, "Select: A");
-      lcd.updateLCD(typedQuestion, optionLine);
+      //lcd.updateLCD(typedQuestion, optionLine);
     }
     else
     {
